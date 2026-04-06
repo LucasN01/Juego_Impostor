@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a0f;
+  --surface:#13131a;
+  --surface2:#1c1c26;
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.14);
+  --accent:#e63946;
+  --accent2:#ff6b6b;
+  --gold:#f4a261;
+  --text:#f0f0f0;
+  --muted:#888;
+  --green:#2ec4b6;
+  --purple:#7b2d8b;
+}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+.noise{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+.glow{
+  position:fixed;pointer-events:none;z-index:0;
+  width:600px;height:600px;
+  background:radial-gradient(circle,rgba(230,57,70,0.12) 0%,transparent 70%);
+  top:-100px;left:50%;transform:translateX(-50%);
+}
+
+/* SCREENS */
+.screen{
+  display:none;min-height:100vh;
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:2rem 1.5rem;position:relative;z-index:1;
+}
+.screen.active{display:flex;}
+
+/* TYPOGRAPHY */
+.display{
+  font-family:'Syne',sans-serif;font-weight:800;
+  font-size:clamp(2.8rem,10vw,5rem);
+  line-height:0.95;letter-spacing:-2px;
+}
+.title{
+  font-family:'Syne',sans-serif;font-weight:700;
+  font-size:clamp(1.4rem,5vw,2rem);letter-spacing:-0.5px;
+}
+h3{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;}
+
+/* LOGO / HOME */
+.logo-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(230,57,70,0.15);border:1px solid rgba(230,57,70,0.3);
+  border-radius:999px;padding:6px 16px;margin-bottom:2rem;
+  font-size:13px;font-weight:500;color:var(--accent2);letter-spacing:0.5px;
+}
+.eye-icon{width:16px;height:16px;fill:var(--accent2);}
+.logo-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.2rem, 10vw, 5rem);  
+  line-height: 1;
+  letter-spacing: -2px; /* Reducimos un poco el ajuste negativo para que no se pisen tanto */
+  text-align: center;
+}
+.logo-title span{color:var(--accent);}
+.logo-sub{color:var(--muted);font-size:1rem;text-align:center;margin-top:1rem;margin-bottom:3rem;max-width:320px;}
+
+/* BUTTONS */
+.btn{
+  font-family:'DM Sans',sans-serif;font-weight:500;
+  border:none;cursor:pointer;
+  border-radius:14px;transition:all 0.15s;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn:active{transform:scale(0.96);}
+.btn-primary{
+  background:var(--accent);color:#fff;
+  padding:16px 36px;font-size:1rem;width:100%;max-width:360px;
+  box-shadow:0 8px 32px rgba(230,57,70,0.35);
+}
+.btn-primary:hover{background:#c62d38;box-shadow:0 12px 40px rgba(230,57,70,0.45);}
+.btn-secondary{
+  background:var(--surface2);color:var(--text);
+  border:1px solid var(--border2);
+  padding:14px 28px;font-size:0.95rem;width:100%;max-width:360px;
+}
+.btn-secondary:hover{background:var(--surface);border-color:var(--border2);}
+.btn-ghost{
+  background:transparent;color:var(--muted);
+  padding:10px 20px;font-size:0.9rem;
+  border:1px solid var(--border);border-radius:10px;
+}
+.btn-ghost:hover{color:var(--text);border-color:var(--border2);}
+.btn-icon{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:12px;padding:10px;color:var(--muted);
+  width:44px;height:44px;
+}
+.btn-icon:hover{border-color:var(--border2);color:var(--text);}
+.btn-cat{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:12px;padding:14px;color:var(--text);
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  font-size:0.85rem;cursor:pointer;transition:all 0.15s;width:100%;
+}
+.btn-cat.selected{
+  background:rgba(230,57,70,0.12);border-color:rgba(230,57,70,0.5);color:var(--accent2);
+}
+.btn-cat:hover{border-color:var(--border2);}
+.btn-cat span{font-size:1.4rem;}
+
+/* CARD */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;width:100%;max-width:400px;padding:1.5rem;
+}
+.card-wide{max-width:520px;}
+
+/* INPUT */
+.input-group{width:100%;max-width:360px;margin-bottom:1rem;}
+.input-label{font-size:13px;color:var(--muted);margin-bottom:8px;display:block;}
+input[type=text], input[type=number]{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:12px;padding:14px 18px;color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;
+  transition:border-color 0.15s;
+}
+input:focus{border-color:rgba(230,57,70,0.5);}
+input::placeholder{color:var(--muted);}
+
+/* GAME CARD */
+.game-card{
+  width:100%;max-width:340px;
+  perspective:1000px;
+  cursor:pointer;
+}
+.game-card-inner{
+  position:relative;width:100%;height:420px;
+  transform-style:preserve-3d;
+  transition:transform 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.game-card-inner.flipped{transform:rotateY(180deg);}
+.game-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(1px);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Mantenelo en center, pero si el texto es MUY largo, podrías probar 'flex-start' y agregar padding-top */
+  padding: 1.5rem;         /* Bajamos un poquito el padding para ganar espacio */
+  overflow-y: auto;        /* Por si la pista es una biblia, permite hacer scroll dentro de la tarjeta */
+}
+.card-front{
+  background:var(--surface);border:1px solid var(--border);
+}
+.card-back{
+  transform:rotateY(180deg) translateZ(1px); /* FIX */
+}
+.card-back.normal{
+  background:var(--surface2);border:2px solid var(--border2);
+}
+.card-back.impostor{
+  background:rgba(18,5,5,0.95);border:2px solid rgba(230,57,70,0.6);
+}
+.card-question{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:5rem;
+  color:var(--border2);
+}
+.card-player-name{
+  font-family:'Syne',sans-serif;font-weight:800;
+  font-size:1.6rem;letter-spacing:-0.5px;
+  text-align:center;margin-bottom:0.5rem;
+  width: 100%;
+}
+.card-hint{color:var(--muted);font-size:0.85rem;text-align:center;}
+
+.card-word {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.5rem, 7vw, 2.2rem);
+  letter-spacing: -1px;
+  text-align: center;
+  color: var(--text);
+  line-height: 1.1;
+  width: 100%;
+  word-break: keep-all;     /* Solo salta en espacios o guiones, nunca a mitad de letra */
+  overflow-wrap: break-word; 
+  display: block;
+}
+.card-impostor-label {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.8rem, 8vw, 2.0rem); /* Bajé un poquito el mínimo para que entre */
+  letter-spacing: -1px;
+  color: var(--accent);
+  text-align: center;
+  display: block;
+  white-space: nowrap;      /* Prohíbe terminantemente saltar de línea */
+  word-break: keep-all;     /* No rompe palabras */
+  overflow: visible;        /* Permite que se vea bien */
+}
+.card-pista {
+  margin-top: 1.5rem;
+  padding: 14px 18px;          /* Un poco más de espacio interno */
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  
+  /* ESTO HACE QUE SE AGRANDE: */
+  width: 100%;                 /* Ocupa todo el ancho disponible */
+  height: auto;                /* Altura automática según el texto */
+  min-height: 50px;            /* Altura mínima para que no se vea vacía */
+  
+  /* TIPOGRAFÍA */
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;            /* Espacio entre renglones para que sea legible */
+  word-break: keep-all;        /* No rompe palabras a la mitad */
+  overflow-wrap: break-word;   /* Salta de renglón si la palabra es muy larga */
+}
+
+.card-pista strong {
+  color: var(--text);
+  display: block;              /* Hace que la palabra "Pista:" aparezca arriba */
+  margin-bottom: 4px;          /* Separa el título "Pista" del contenido */
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.tap-hint{
+  font-size:0.8rem;color:var(--muted);text-align:center;
+  margin-top:1.5rem;letter-spacing:0.3px;
+}
+
+/* PROGRESS */
+.progress-bar{
+  width:100%;max-width:340px;height:3px;
+  background:var(--surface2);border-radius:3px;margin-bottom:2rem;overflow:hidden;
+}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.4s;}
+
+/* PLAYER COUNTER */
+.player-counter{
+  display:flex;align-items:center;gap:12px;margin-bottom:2rem;
+}
+.counter-text{font-size:0.9rem;color:var(--muted);}
+.counter-num{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;color:var(--text);}
+
+/* TOGGLE */
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;border-bottom:1px solid var(--border);
+}
+.toggle-info{}
+.toggle-label{font-size:0.95rem;font-weight:500;}
+.toggle-desc{font-size:0.8rem;color:var(--muted);margin-top:2px;}
+.toggle-switch{position:relative;width:48px;height:26px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border);
+  border-radius:999px;cursor:pointer;transition:0.3s;
+}
+.toggle-slider:before{
+  content:'';position:absolute;width:20px;height:20px;
+  background:#fff;border-radius:50%;top:2px;left:2px;transition:0.3s;
+}
+input:checked + .toggle-slider{background:var(--accent);border-color:var(--accent);}
+input:checked + .toggle-slider:before{transform:translateX(22px);}
+
+/* STEPPER */
+.stepper{display:flex;align-items:center;gap:12px;}
+.stepper-btn{
+  width:40px;height:40px;border-radius:10px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-size:1.2rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;
+}
+.stepper-btn:hover{border-color:var(--border2);}
+.stepper-btn:active{transform:scale(0.9);}
+.stepper-val{
+  font-family:'Syne',sans-serif;font-weight:700;font-size:1.4rem;
+  min-width:32px;text-align:center;
+}
+
+/* END SCREEN */
+.end-icon{
+  width:80px;height:80px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:3rem;margin-bottom:1rem;
+}
+
+/* ANIMATION */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+.anim-up{animation:fadeUp 0.4s ease both;}
+.anim-in{animation:fadeIn 0.3s ease both;}
+.pulse{animation:pulse 2s ease-in-out infinite;}
+
+/* CATEGORIES GRID */
+.cat-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  width:100%;max-width:400px;
+}
+
+/* BACK BTN */
+.back-btn{
+  position:absolute;top:1.5rem;left:1.5rem;z-index:10;
+  display:flex;align-items:center;gap:6px;
+  font-size:0.85rem;color:var(--muted);cursor:pointer;
+  transition:color 0.15s;background:none;border:none;
+}
+.back-btn:hover{color:var(--text);}
+.back-arrow{font-size:1.1rem;}
+
+/* IMPOSTORS TAG */
+.imp-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(230,57,70,0.12);border:1px solid rgba(230,57,70,0.25);
+  border-radius:999px;padding:4px 12px;
+  font-size:12px;color:var(--accent2);margin-bottom:1.5rem;
+}
+
+/* MODE CARDS */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:400px;}
+.mode-card{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:16px;padding:20px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  cursor:pointer;transition:all 0.2s;text-align:center;
+}
+.mode-card:hover{border-color:var(--border2);background:var(--surface);}
+.mode-card:active{transform:scale(0.97);}
+.mode-card.active{border-color:rgba(230,57,70,0.5);background:rgba(230,57,70,0.08);}
+.mode-icon{font-size:2rem;}
+.mode-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;}
+.mode-desc{font-size:0.75rem;color:var(--muted);}
+
+/* SCROLL */
+.scroll-area{overflow-y:auto;max-height:45vh;width:100%;padding-right:4px;}
+.scroll-area::-webkit-scrollbar{width:3px;}
+.scroll-area::-webkit-scrollbar-track{background:transparent;}
+.scroll-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* CONFETTI */
+.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:100;overflow:hidden;}
+.confetti-piece{
+  position:absolute;width:8px;height:8px;border-radius:2px;
+  animation:confettiFall linear forwards;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1;}
+  100%{transform:translateY(100vh) rotate(720deg);opacity:0;}
+}
+
+/* DIVIDER */
+.divider{width:100%;max-width:400px;height:1px;background:var(--border);margin:1rem 0;}
+
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:0.75rem;}
+
+/* Clase para controlar el tamaño de la imagen */
+.app-logo {
+  display: block;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+/* Marca de agua para el reverso de las tarjetas */
+.card-back-watermark {
+  position: absolute;
+  bottom: -30px;
+  right: -30px;
+  width: 140px;
+  height: 140px;
+  opacity: 0.06; /* Muy sutil */
+  pointer-events: none;
+  z-index: -1;
+  filter: grayscale(1) brightness(2); /* Ajusta según el color de tu logo */
+}
+
+.footer-text {
+  position: absolute;
+  bottom: 20px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  opacity: 0.6;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="glow"></div>
+<div class="confetti-container" id="confettiContainer"></div>
+
+<div class="screen active" id="screenHome">
+  <div style="margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center;">
+      <img src="img\impostor.png" alt="Logo" class="app-logo" style="width: 120px; height: 120px;">
+    <div class="logo-badge">Juego de Deducción Social</div>
+  </div>
+  <div class="logo-title">EL<br><span>IMPOSTOR</span></div>
+  <p class="logo-sub">Un jugador no sabe la palabra secreta. ¿Podés encontrarlo?</p>
+  <button class="btn btn-primary" onclick="goTo('screenPlayers')" style="margin-bottom:12px;">
+    Empezar partida
+  </button>
+  <button class="btn btn-ghost" onclick="showRules()">¿Cómo se juega?</button>
+  <div class="footer-text">Promamed by LGN2001</div>
+</div>
+
+<div class="screen" id="screenPlayers">
+  <button class="back-btn" onclick="goTo('screenHome')"><span class="back-arrow">←</span> Inicio</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <p class="section-label">Paso 1 de 3</p>
+    <h3 class="title" style="margin-bottom:0.4rem;text-align:center;">¿Cuántos jugadores?</h3>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:2.5rem;text-align:center;">Mínimo 3, máximo 30</p>
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:2.5rem;">
+      <button class="stepper-btn" onclick="changeCount(-1)">−</button>
+      <span class="stepper-val" id="playerCount">4</span>
+      <button class="stepper-btn" onclick="changeCount(1)">+</button>
+    </div>
+    <button class="btn btn-primary" onclick="goToNames()">Continuar →</button>
+  </div>
+</div>
+
+<div class="screen" id="screenNames">
+  <button class="back-btn" onclick="goTo('screenPlayers')"><span class="back-arrow">←</span> Atrás</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <p class="section-label">Paso 2 de 3</p>
+    <h3 class="title" style="margin-bottom:0.4rem;text-align:center;">Nombres</h3>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem;text-align:center;">Ingresá el nombre de cada jugador</p>
+    <div class="scroll-area" id="namesContainer" style="width:100%;"></div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-primary" onclick="goToSetup()">Continuar →</button>
+  </div>
+</div>
+
+<div class="screen" id="screenSetup">
+  <button class="back-btn" onclick="goTo('screenNames')"><span class="back-arrow">←</span> Atrás</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <p class="section-label">Paso 3 de 3</p>
+    <h3 class="title" style="margin-bottom:1.5rem;text-align:center;">Configuración</h3>
+
+    <div style="width:100%;">
+      <p class="section-label">Modo de juego</p>
+      <div class="mode-grid">
+        <div class="mode-card active" id="modeClasico" onclick="selectMode('CLASICO')">
+          <span class="mode-icon">🔤</span>
+          <span class="mode-name">Clásico</span>
+          <span class="mode-desc">Vos elegís la palabra</span>
+        </div>
+        <div class="mode-card" id="modeCategorias" onclick="selectMode('CATEGORIAS')">
+          <span class="mode-icon">🎲</span>
+          <span class="mode-name">Categorías</span>
+          <span class="mode-desc">Palabra aleatoria</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="width:100%;">
+      <p class="section-label">Impostores</p>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="changeImpostors(-1)">−</button>
+        <span class="stepper-val" id="impostorCount">1</span>
+        <button class="stepper-btn" onclick="changeImpostors(1)">+</button>
+        <span style="font-size:0.85rem;color:var(--muted);margin-left:4px;">de <span id="totalPlayers">4</span> jugadores</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="width:100%;">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Pista para el impostor</div>
+          <div class="toggle-desc">El impostor ve una categoría genérica</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="togglePista">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-primary" onclick="goToGameMode()">¡Comenzar! →</button>
+  </div>
+</div>
+
+<div class="screen" id="screenClassic">
+  <button class="back-btn" onclick="goTo('screenSetup')"><span class="back-arrow">←</span> Config</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <span class="imp-tag">Modo Clásico</span>
+    <h3 class="title" style="margin-bottom:0.4rem;text-align:center;">Palabra secreta</h3>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:0.5rem;text-align:center;">Solo el organizador ve esta pantalla</p>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;text-align:center;">El impostor NO conocerá la palabra</p>
+
+    <div class="input-group">
+      <label class="input-label">Palabra o frase secreta</label>
+      <input type="text" id="secretWord" placeholder="Ej: Lionel Messi, Pizza, Roma..." autofocus>
+    </div>
+
+    <div style="width:100%;max-width:360px;">
+      <p class="section-label">¿Quién ingresa la palabra? (ese jugador es "seguro")</p>
+      <div id="excludeList" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    </div>
+
+    <div style="height:1.5rem;"></div>
+    <button class="btn btn-primary" onclick="startGame()">Empezar ronda →</button>
+  </div>
+</div>
+
+<div class="screen" id="screenCategories">
+  <button class="back-btn" onclick="goTo('screenSetup')"><span class="back-arrow">←</span> Config</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <span class="imp-tag">Modo Categorías</span>
+    <h3 class="title" style="margin-bottom:0.4rem;text-align:center;">Elegí categorías</h3>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem;text-align:center;">La palabra se elige automáticamente</p>
+    <div class="cat-grid" id="catGrid"></div>
+    <div style="height:1.5rem;"></div>
+    <button class="btn btn-primary" onclick="startCategoriesGame()">Empezar ronda →</button>
+  </div>
+</div>
+
+<div class="screen" id="screenGame" style="justify-content:flex-start;padding-top:3rem;">
+  <div style="width:100%;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="player-counter">
+      <span class="counter-text">Jugador</span>
+      <span class="counter-num" id="playerCounterText">1 / 4</span>
+    </div>
+    <div class="game-card" onclick="handleCardTap()">
+      <div class="game-card-inner" id="gameCardInner">
+        <div class="card-front game-card-face">
+          <div class="card-question pulse" id="cardQuestion">?</div>
+          <p class="card-player-name" id="cardPlayerName">---</p>
+          <p class="card-hint" id="cardHint">Toca para ver tu rol</p>
+        </div>
+        <div class="card-back normal game-card-face" id="cardBack">
+          <p class="card-player-name" id="cardPlayerNameBack" style="font-size: 1.1rem; color: var(--muted); margin-bottom: 1rem;">---</p>
+          <div class="card-word" id="cardWord"></div>
+          <div id="cardPistaEl"></div>
+        </div>
+      </div>
+    </div>
+    <p class="tap-hint" id="tapHintText" style="margin-top:1.5rem;">👆 Tocá la tarjeta para revelar tu rol</p>
+  </div>
+</div>
+
+<div class="screen" id="screenEnd">
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+    <div class="end-icon" id="endIcon">🎭</div>
+    <h3 class="title" style="margin-bottom:0.5rem;" id="endTitle">¡Todos listos!</h3>
+    <p style="color:var(--text);font-size:1.2rem;font-weight:500;margin-bottom:2rem;" id="endSub">¡Que comience el juego!</p>
+
+    <div style="width:100%;display:flex;flex-direction:column;gap:10px;margin-top:0.5rem;">
+      <button class="btn btn-primary" onclick="newRound()">Nueva ronda</button>
+      <button class="btn btn-secondary" onclick="goTo('screenSetup')">Cambiar configuración</button>
+      <button class="btn btn-ghost" onclick="goTo('screenHome')">Salir al inicio</button>
+    </div>
+  </div>
+</div>
+
+<div id="rulesModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1.5rem;">
+  <div class="card card-wide anim-up" style="max-height:80vh;overflow-y:auto;position:relative;">
+    <button onclick="hideRules()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;">✕</button>
+    <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.5rem;font-size:1.3rem;">¿Cómo se juega?</h3>
+    <div style="display:flex;flex-direction:column;gap:1.2rem;font-size:0.9rem;color:var(--muted);line-height:1.7;">
+      <div><span style="color:var(--text);font-weight:500;">1. La palabra secreta</span><br>El organizador elige una palabra. Todos los jugadores la verán... excepto el impostor.</div>
+      <div><span style="color:var(--text);font-weight:500;">2. Las tarjetas</span><br>Cada jugador ve su tarjeta en privado. Los jugadores comunes ven la palabra. El impostor ve "IMPOSTOR".</div>
+      <div><span style="color:var(--text);font-weight:500;">3. La discusión</span><br>Todos dan pistas sobre la palabra SIN decirla directamente. El impostor intenta pasar desapercibido.</div>
+      <div><span style="color:var(--text);font-weight:500;">4. La votación</span><br>El grupo vota quién creen que es el impostor. ¡El impostor gana si no lo descubren!</div>
+      <div style="background:rgba(230,57,70,0.08);border:1px solid rgba(230,57,70,0.2);border-radius:12px;padding:12px;color:var(--text);">
+        <strong>Modo Categorías:</strong> La palabra se elige automáticamente de categorías. El impostor puede recibir una pista genérica de la categoría (opcional).
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="hideRules()" style="margin-top:1.5rem;">¡Entendido!</button>
+  </div>
+</div>
+
+<script>
+// DATA
+const CATEGORIES = {
+  "Países": ["Argentina","Brasil","Chile","Uruguay","México","Estados Unidos","España","Francia","Italia","Alemania","China","Japón","Australia","Canadá","Rusia","India","Portugal","Colombia","Perú","Bolivia","Paraguay","Ecuador","Venezuela","Cuba","Grecia","Turquía","Egipto","Marruecos","Sudáfrica","Arabia Saudita"],
+  "Fútbol": ["Lionel Messi","Diego Maradona","Cristiano Ronaldo","Pelé","Zinedine Zidane","Ronaldinho","Kylian Mbappé","Erling Haaland","Ángel Di María","Lautaro Martínez","Julián Álvarez","Paulo Dybala","Real Madrid","Barcelona","Boca Juniors","River Plate","Manchester City","Liverpool","Bayern Munich","PSG","Copa del Mundo","Champions League","Pep Guardiola","Diego Simeone","Marcelo Bielsa","Luis Suárez","Neymar","Rodrigo De Paul","Enzo Fernández"],
+  "Cine y TV": ["Titanic","Avatar","El Padrino","Forrest Gump","Matrix","Inception","Gladiador","Jurassic Park","Breaking Bad","Game of Thrones","Stranger Things","Friends","The Office","Peaky Blinders","El Marginal","Los Simuladores","Casados con hijos","Relatos salvajes","El secreto de sus ojos","Nueve reinas","Okupas","Dark","Vikings","Lost","The Big Bang Theory","Better Call Saul","Oppenheimer","Top Gun","John Wick","El Padrino II"],
+  "Famosos Arg": ["Marcelo Tinelli","Susana Giménez","Mirtha Legrand","Lali Espósito","Charly García","Gustavo Cerati","Fito Páez","Spinetta","Bizarrap","Duki","Nicki Nicole","Wos","Jorge Rial","Guido Kaczka","Darío Barassi","Coscu","Momo","Luquitas Rodríguez","Davoo Xeneize","La Cobra","Mafalda","El Zorro","Astor Piazzolla","Mercedes Sosa","Sandro","Palito Ortega","Tini Stoessel","María Becerra","Paulo Londra","L-Gante","Perón","Cristina Kirchner","Milei","Eva Perón"],
+  "Famosos": ["Leonardo DiCaprio","Brad Pitt","Tom Cruise","Johnny Depp","Robert Downey Jr","Scarlett Johansson","Michael Jackson","Madonna","Elvis Presley","Freddie Mercury","Elon Musk","Steve Jobs","Bill Gates","Barack Obama","Beyoncé","Taylor Swift","Shakira","Adele","Lady Gaga","Eminem","The Rock","Arnold Schwarzenegger","Al Pacino","Meryl Streep","Will Smith","Jim Carrey","Morgan Freeman","Ryan Reynolds","Chris Evans","Zendaya"],
+  "Objetos": ["Celular","Computadora","Televisor","Heladera","Silla","Mesa","Cama","Lampara","Pelota","Libro","Reloj","Mochila","Botella","Taza","Olla","Martillo","Guitarra","Piano","Bicicleta","Automóvil","Avión","Barco","Paraguas","Espejo","Cámara","Micrófono","Auriculares","Tablet","Sartén","Almohada"]
+};
+
+const PISTAS = {
+  "Argentina":"País sudamericano","Brasil":"País sudamericano","Chile":"País sudamericano",
+  "Estados Unidos":"País de América del Norte","España":"País europeo","Francia":"País europeo",
+  "Italia":"País europeo","Alemania":"País europeo","China":"País asiático","Japón":"País asiático",
+  "Lionel Messi":"Jugador de fútbol","Diego Maradona":"Leyenda del fútbol argentino",
+  "Cristiano Ronaldo":"Jugador de fútbol","Pelé":"Leyenda del fútbol","Ronaldinho":"Leyenda del fútbol",
+  "Kylian Mbappé":"Figura del fútbol actual","Real Madrid":"Club europeo","Barcelona":"Club europeo",
+  "Boca Juniors":"Club argentino","River Plate":"Club argentino","Breaking Bad":"Serie de televisión",
+  "Game of Thrones":"Serie de fantasía","Stranger Things":"Serie de Netflix","Friends":"Serie de comedia",
+  "Titanic":"Película de Hollywood","Avatar":"Película de ciencia ficción","Matrix":"Película de ciencia ficción",
+  "Lali Espósito":"Artista argentina","Charly García":"Músico argentino","Gustavo Cerati":"Músico argentino",
+  "Bizarrap":"Productor musical argentino","Duki":"Cantante argentino","Leonardo DiCaprio":"Actor de Hollywood",
+  "Michael Jackson":"Ícono de la música mundial","Elon Musk":"Empresario tecnológico",
+  "Taylor Swift":"Cantante internacional","Celular":"Objeto tecnológico","Computadora":"Objeto tecnológico",
+  "Silla":"Mueble","Mesa":"Mueble","Guitarra":"Instrumento musical","Bicicleta":"Vehículo"
+};
+
+function getPista(palabra, categoria) {
+  if (PISTAS[palabra]) return PISTAS[palabra];
+  const catMap = {
+    "Países":"País del mundo","Fútbol":"Relacionado con el fútbol",
+    "Cine y TV":"Película o serie","Famosos Arg":"Famoso argentino",
+    "Famosos":"Persona famosa","Objetos":"Objeto cotidiano"
+  };
+  return catMap[categoria] || "Pista general";
+}
+
+// STATE
+let state = {
+  playerCount: 4,
+  players: [],
+  impostors: 1,
+  mode: 'CLASICO',
+  pistaActiva: false,
+  secretWord: '',
+  categoria: '',
+  excludedIndex: -1,
+  impostorIndices: [],
+  currentPlayer: 0,
+  cardFlipped: false,
+  wordShown: false,
+  availableWords: [],
+  selectedCategories: new Set(['Países','Fútbol','Cine y TV']),
+};
+
+// NAVIGATION
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// HOME
+function showRules() {
+  const m = document.getElementById('rulesModal');
+  m.style.display = 'flex';
+}
+function hideRules() {
+  document.getElementById('rulesModal').style.display = 'none';
+}
+
+// PLAYER COUNT
+function changeCount(delta) {
+  state.playerCount = Math.max(3, Math.min(30, state.playerCount + delta));
+  document.getElementById('playerCount').textContent = state.playerCount;
+}
+
+function goToNames() {
+  const container = document.getElementById('namesContainer');
+  container.innerHTML = '';
+  for (let i = 0; i < state.playerCount; i++) {
+    const existing = state.players[i] || '';
+    const div = document.createElement('div');
+    div.style.cssText = 'width:100%;margin-bottom:10px;';
+    div.innerHTML = `<input type="text" placeholder="Jugador ${i+1}" value="${existing}" data-idx="${i}" style="width:100%;" onkeydown="if(event.key==='Enter'){const nxt=document.querySelector('[data-idx=\\'${i+1}\\']');if(nxt)nxt.focus();}">`;
+    container.appendChild(div);
+  }
+  goTo('screenNames');
+  setTimeout(() => {
+    const first = container.querySelector('input');
+    if (first) first.focus();
+  }, 200);
+}
+
+function goToSetup() {
+  const inputs = document.querySelectorAll('#namesContainer input');
+  state.players = [];
+  for (let inp of inputs) {
+    const v = inp.value.trim();
+    if (!v) { inp.style.borderColor='var(--accent)'; inp.focus(); return; }
+    inp.style.borderColor = '';
+    state.players.push(v);
+  }
+  state.impostors = Math.min(state.impostors, state.players.length - 1);
+  document.getElementById('totalPlayers').textContent = state.players.length;
+  document.getElementById('impostorCount').textContent = state.impostors;
+  goTo('screenSetup');
+}
+
+// SETUP
+function selectMode(mode) {
+  state.mode = mode;
+  document.getElementById('modeClasico').classList.toggle('active', mode==='CLASICO');
+  document.getElementById('modeCategorias').classList.toggle('active', mode==='CATEGORIAS');
+}
+
+function changeImpostors(delta) {
+  const max = state.players.length - 1;
+  state.impostors = Math.max(1, Math.min(max, state.impostors + delta));
+  document.getElementById('impostorCount').textContent = state.impostors;
+}
+
+function goToGameMode() {
+  state.pistaActiva = document.getElementById('togglePista').checked;
+  if (state.mode === 'CLASICO') {
+    buildExcludeList();
+    goTo('screenClassic');
+  } else {
+    buildCatGrid();
+    goTo('screenCategories');
+  }
+}
+
+// CLASSIC
+function buildExcludeList() {
+  const container = document.getElementById('excludeList');
+  container.innerHTML = '';
+  state.players.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-cat';
+    btn.dataset.idx = i;
+    btn.innerHTML = `<span>${p[0].toUpperCase()}</span><span style="font-size:0.8rem;">${p}</span>`;
+    if (i === (state.excludedIndex === -1 ? 0 : state.excludedIndex)) btn.classList.add('selected');
+    btn.onclick = () => {
+      document.querySelectorAll('#excludeList .btn-cat').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      state.excludedIndex = i;
+    };
+    container.appendChild(btn);
+  });
+  if (state.excludedIndex === -1) state.excludedIndex = 0;
+}
+
+function startGame() {
+  const word = document.getElementById('secretWord').value.trim();
+  if (!word) { document.getElementById('secretWord').style.borderColor='var(--accent)'; return; }
+  state.secretWord = word;
+  state.categoria = '';
+  state.availableWords = [];
+  assignImpostors();
+  startRound();
+}
+
+// CATEGORIES
+function buildCatGrid() {
+  const grid = document.getElementById('catGrid');
+  grid.innerHTML = '';
+  const catIcons = {"Países":"🌍","Fútbol":"⚽","Cine y TV":"🎬","Famosos Arg":"🇦🇷","Famosos":"⭐","Objetos":"📦"};
+  Object.keys(CATEGORIES).forEach(cat => {
+    const btn = document.createElement('div');
+    btn.className = 'btn-cat' + (state.selectedCategories.has(cat) ? ' selected' : '');
+    btn.innerHTML = `<span>${catIcons[cat]||'📌'}</span><span>${cat}</span>`;
+    btn.onclick = () => {
+      if (state.selectedCategories.has(cat)) {
+        if (state.selectedCategories.size > 1) state.selectedCategories.delete(cat);
+      } else {
+        state.selectedCategories.add(cat);
+      }
+      btn.classList.toggle('selected', state.selectedCategories.has(cat));
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function startCategoriesGame() {
+  const allWords = [];
+  state.selectedCategories.forEach(cat => {
+    CATEGORIES[cat].forEach(w => allWords.push({word:w, cat}));
+  });
+  const chosen = allWords[Math.floor(Math.random()*allWords.length)];
+  state.secretWord = chosen.word;
+  state.categoria = chosen.cat;
+  state.availableWords = allWords;
+  state.excludedIndex = -1;
+  assignImpostors();
+  startRound();
+}
+
+// GAME LOGIC
+function assignImpostors() {
+  state.impostorIndices = [];
+  const possible = state.players.map((_,i) => i);
+
+  if (state.mode === 'CLASICO') {
+    const nameMatch = state.players.findIndex(p => p.toLowerCase() === state.secretWord.toLowerCase());
+    if (nameMatch !== -1) {
+      state.impostorIndices.push(nameMatch);
+      const rest = possible.filter(i => i !== nameMatch && i !== state.excludedIndex);
+      rest.sort(() => Math.random()-0.5);
+      state.impostorIndices.push(...rest.slice(0, state.impostors - 1));
+    } else {
+      const rest = possible.filter(i => i !== state.excludedIndex);
+      rest.sort(() => Math.random()-0.5);
+      state.impostorIndices = rest.slice(0, state.impostors);
+    }
+  } else {
+    const rest = [...possible].sort(() => Math.random()-0.5);
+    state.impostorIndices = rest.slice(0, state.impostors);
+  }
+}
+
+function startRound() {
+  state.currentPlayer = 0;
+  state.cardFlipped = false;
+  state.wordShown = false;
+  goTo('screenGame');
+  showCurrentPlayer();
+}
+
+function showCurrentPlayer() {
+  const total = state.players.length;
+  const idx = state.currentPlayer;
+
+  document.getElementById('progressFill').style.width = `${(idx/total)*100}%`;
+  document.getElementById('playerCounterText').textContent = `${idx+1} / ${total}`;
+
+  const cardInner = document.getElementById('gameCardInner');
+  const cardBack = document.getElementById('cardBack');
+
+  // Reset card
+  cardInner.classList.remove('flipped');
+  cardBack.className = 'card-back normal game-card-face';
+  document.getElementById('cardWord').innerHTML = '';
+  document.getElementById('cardPistaEl').innerHTML = '';
+
+  // FIX: Seteamos el nombre tanto en el frente como en el dorso
+  document.getElementById('cardPlayerName').textContent = state.players[idx];
+  document.getElementById('cardPlayerNameBack').textContent = state.players[idx];
+  
+  document.getElementById('cardQuestion').textContent = '?';
+  document.getElementById('cardHint').textContent = 'Toca para ver tu rol';
+  document.getElementById('tapHintText').textContent = '👆 Tocá la tarjeta para revelar tu rol';
+
+  state.cardFlipped = false;
+  state.wordShown = false;
+}
+
+function handleCardTap() {
+  if (!state.wordShown) {
+    // First tap - reveal
+    const isImpostor = state.impostorIndices.includes(state.currentPlayer);
+    const cardInner = document.getElementById('gameCardInner');
+    const cardBack = document.getElementById('cardBack');
+
+    if (isImpostor) {
+      cardBack.className = 'card-back impostor game-card-face';
+      document.getElementById('cardWord').innerHTML = `<div class="card-impostor-label">IMPOSTOR</div>`;
+
+      if (state.pistaActiva && state.categoria) {
+        const pista = getPista(state.secretWord, state.categoria);
+        document.getElementById('cardPistaEl').innerHTML = `<div class="card-pista"><strong>Pista:</strong> ${pista}</div>`;
+      }
+
+      // Red flash effect
+      cardBack.animate([{background:'rgba(18,5,5,0.95)'},{background:'rgba(80,5,5,0.95)'},{background:'rgba(18,5,5,0.95)'}],{duration:600,iterations:1});
+
+    } else {
+      cardBack.className = 'card-back normal game-card-face';
+      document.getElementById('cardWord').innerHTML = `<div class="card-word">${state.secretWord}</div>`;
+      if (state.categoria) {
+        document.getElementById('cardPistaEl').innerHTML = `<div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);">Categoría: ${state.categoria}</div>`;
+      }
+    }
+
+    cardInner.classList.add('flipped');
+    document.getElementById('tapHintText').textContent = '👆 Tocá de nuevo para pasar el teléfono';
+    state.wordShown = true;
+
+  } else {
+    // Second tap - next player or end
+    state.currentPlayer++;
+    if (state.currentPlayer < state.players.length) {
+      // Flip back first
+      const cardInner = document.getElementById('gameCardInner');
+      cardInner.classList.remove('flipped');
+      setTimeout(() => showCurrentPlayer(), 350);
+    } else {
+      showEnd();
+    }
+  }
+}
+
+// END SCREEN
+function showEnd() {
+  document.getElementById('progressFill').style.width = '100%';
+  launchConfetti();
+  goTo('screenEnd');
+}
+
+function newRound() {
+  if (state.mode === 'CLASICO') {
+    buildExcludeList();
+    document.getElementById('secretWord').value = '';
+    goTo('screenClassic');
+  } else {
+    startCategoriesGame();
+  }
+}
+
+// CONFETTI
+function launchConfetti() {
+  const container = document.getElementById('confettiContainer');
+  container.innerHTML = '';
+  const colors = ['#e63946','#f4a261','#2ec4b6','#7b2d8b','#f8f8f8','#ff6b6b','#ffd166'];
+  for (let i = 0; i < 60; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.cssText = `
+      left:${Math.random()*100}%;
+      top:${-10-Math.random()*20}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      transform:rotate(${Math.random()*360}deg);
+      width:${6+Math.random()*8}px;
+      height:${6+Math.random()*8}px;
+      animation-duration:${2+Math.random()*2}s;
+      animation-delay:${Math.random()*0.8}s;
+    `;
+    container.appendChild(piece);
+    setTimeout(() => piece.remove(), 4000);
+  }
+}
+</script>
+</body>
+</html>
