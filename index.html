@@ -408,13 +408,25 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
   font-weight: 500;
 }
 
+.header-text{
+    position: fixed;
+    top: 15px;
+    width: 100%;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 500;
+}
+  
+  
 </style>
 </head>
 <body>
 <div class="noise"></div>
 <div class="glow"></div>
 <div class="confetti-container" id="confettiContainer"></div>
-
+<div class="header-text">Programmed by LGN2001</div>
 <div class="screen active" id="screenHome">
   <div style="margin-bottom: 2rem; display: flex; flex-direction: column; align-items: center;">
       <img src="img\impostor.png" alt="Logo" class="app-logo" style="width: 120px; height: 120px;">
@@ -426,7 +438,7 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
     Empezar partida
   </button>
   <button class="btn btn-ghost" onclick="showRules()">¿Cómo se juega?</button>
-  <div class="footer-text">Promamed by LGN2001</div>
+  <div class="footer-text">Programmed by LGN2001</div>
 </div>
 
 <div class="screen" id="screenPlayers">
