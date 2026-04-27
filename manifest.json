@@ -1,6 +1,6 @@
 {
-  "name": "Mi Página",
-  "short_name": "MiApp",
+  "name": "Juego Impostor",
+  "short_name": "Juego Impostor",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
