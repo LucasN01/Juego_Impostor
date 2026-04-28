@@ -1,7 +1,7 @@
 {
   "name": "Juego Impostor",
   "short_name": "Juego Impostor",
-  "start_url": "/Juego_Impostor/",
+  "start_url": "https://lucasn01.github.io/Juego_Impostor/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
