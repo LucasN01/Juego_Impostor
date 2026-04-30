@@ -2060,6 +2060,7 @@ async function launchOnlineGame() {
     pistaActiva,
     selectedCategories: new Set(onlineState.selectedCategories),
   };
+ 
 
   if (onlineState.mode === 'CLASICO') {
     secretWord = document.getElementById('onlineSecretWord').value.trim();
@@ -2173,10 +2174,11 @@ function listenAdminEnd(totalPlayers, secretWord, impostorIds, playersObj) {
 async function newOnlineRound() {
   if (!onlineState.lastConfig) { goToOnlineSetup(); return; }
 
-  // Restaurar config guardada
-  onlineState.mode = onlineState.lastConfig.mode;
-  onlineState.impostors = onlineState.lastConfig.impostors;
-  onlineState.selectedCategories = new Set(onlineState.lastConfig.selectedCategories);
+  if (onlineState.lastConfig) {
+    onlineState.mode = onlineState.lastConfig.mode;
+    onlineState.impostors = onlineState.lastConfig.impostors;
+    onlineState.selectedCategories = new Set(onlineState.lastConfig.selectedCategories);
+  }
 
   if (onlineState.mode === 'CLASICO') {
     // Modo clásico: pedir nueva palabra antes de lanzar
@@ -2329,18 +2331,20 @@ function handleOnlineCardTap() {
   }
 }
 
-function listenWaitEnd() {
-  const sRef = roomRef.child('status');
-  const sHandler = sRef.on('value', snap => {
-    if (snap.val()==='lobby') {
-      clearListeners();
-      document.getElementById('waitingRoomTitle').textContent = 'Sala '+onlineState.roomCode;
-      onlineState.cardRevealed = false;
-      goTo('screenPlayerWaiting');
-      listenPlayerWaiting();
-    }
-  });
-  unsubscribers.push(()=>sRef.off('value',sHandler));
+function handleOnlineCardTap() {
+  if (!onlineState.cardRevealed) {
+    // Primer toque: revela la tarjeta
+    document.getElementById('onlineCardInner').classList.add('flipped');
+    document.getElementById('tapHintOnline').textContent = '👆 Tocá de nuevo para confirmar';
+    onlineState.cardRevealed = true;
+  } else {
+    // Segundo toque: avanza
+    roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
+    goTo('screenOnlineWaitEnd');
+    const adminBtn = document.getElementById('adminNewRoundBtn');
+    adminBtn.style.display = onlineState.isAdmin ? 'flex' : 'none';
+    listenWaitEnd();
+  }
 }
 
 // ----- Salir de sala -----
