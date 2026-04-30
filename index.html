@@ -2060,7 +2060,6 @@ async function launchOnlineGame() {
     pistaActiva,
     selectedCategories: new Set(onlineState.selectedCategories),
   };
- 
 
   if (onlineState.mode === 'CLASICO') {
     secretWord = document.getElementById('onlineSecretWord').value.trim();
@@ -2174,12 +2173,12 @@ function listenAdminEnd(totalPlayers, secretWord, impostorIds, playersObj) {
 async function newOnlineRound() {
   if (!onlineState.lastConfig) { goToOnlineSetup(); return; }
 
+  // Restaurar config guardada
   if (onlineState.lastConfig) {
     onlineState.mode = onlineState.lastConfig.mode;
     onlineState.impostors = onlineState.lastConfig.impostors;
     onlineState.selectedCategories = new Set(onlineState.lastConfig.selectedCategories);
   }
-
   if (onlineState.mode === 'CLASICO') {
     // Modo clásico: pedir nueva palabra antes de lanzar
     selectOnlineMode('CLASICO');
@@ -2299,18 +2298,26 @@ async function showOnlineCard() {
   }
 
   document.getElementById('onlineWaitOthers').textContent = '';
+  document.getElementById('tapHintOnline').textContent = '👆 Tocá la tarjeta para revelar tu rol';
   goTo('screenOnlineCard');
 
-  // Listen for status back to lobby (new round)
+  // Listen for new round or back to lobby
   const sRef = roomRef.child('status');
+  let lastStatus = 'playing';
   const sHandler = sRef.on('value', snap => {
-    if (snap.val()==='lobby') {
+    const status = snap.val();
+    if (status === 'lobby') {
       clearListeners();
       document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
       onlineState.cardRevealed = false;
       goTo('screenPlayerWaiting');
       listenPlayerWaiting();
+    } else if (status === 'playing' && lastStatus === 'playing') {
+      // Nueva ronda directa sin pasar por lobby
+      onlineState.cardRevealed = false;
+      showOnlineCard();
     }
+    lastStatus = status;
   });
   unsubscribers.push(()=>sRef.off('value',sHandler));
 }
@@ -2331,20 +2338,25 @@ function handleOnlineCardTap() {
   }
 }
 
-function handleOnlineCardTap() {
-  if (!onlineState.cardRevealed) {
-    // Primer toque: revela la tarjeta
-    document.getElementById('onlineCardInner').classList.add('flipped');
-    document.getElementById('tapHintOnline').textContent = '👆 Tocá de nuevo para confirmar';
-    onlineState.cardRevealed = true;
-  } else {
-    // Segundo toque: avanza
-    roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
-    goTo('screenOnlineWaitEnd');
-    const adminBtn = document.getElementById('adminNewRoundBtn');
-    adminBtn.style.display = onlineState.isAdmin ? 'flex' : 'none';
-    listenWaitEnd();
-  }
+function listenWaitEnd() {
+  const sRef = roomRef.child('status');
+  let lastStatus = 'playing';
+  const sHandler = sRef.on('value', snap => {
+    const status = snap.val();
+    if (status === 'lobby') {
+      clearListeners();
+      document.getElementById('waitingRoomTitle').textContent = 'Sala '+onlineState.roomCode;
+      onlineState.cardRevealed = false;
+      goTo('screenPlayerWaiting');
+      listenPlayerWaiting();
+    } else if (status === 'playing' && lastStatus === 'playing') {
+      // Nueva ronda directa sin pasar por lobby (ej: categorías con misma config)
+      onlineState.cardRevealed = false;
+      showOnlineCard();
+    }
+    lastStatus = status;
+  });
+  unsubscribers.push(()=>sRef.off('value',sHandler));
 }
 
 // ----- Salir de sala -----
