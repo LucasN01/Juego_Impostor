@@ -740,7 +740,6 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
     <div id="adminNewRoundBtn" style="display:none;width:100%;margin-top:1.5rem;display:flex;flex-direction:column;gap:10px;">
       <p style="color:var(--muted);font-size:0.8rem;">Sos el admin — podés iniciar una nueva ronda cuando quieras.</p>
       <button class="btn btn-primary" onclick="newOnlineRound()">Nueva ronda</button>
-      <button class="btn btn-secondary" onclick="goToOnlineSetup()">Cambiar configuración</button>
     </div>
     <div style="height:1rem;"></div>
     <button class="btn btn-ghost" onclick="leaveRoom()">Salir del juego</button>
@@ -2053,14 +2052,6 @@ async function launchOnlineGame() {
   let secretWord = '', categoria = '';
   const pistaActiva = document.getElementById('onlineTogglePista').checked;
 
-  // Guardar config para reutilizar en nueva ronda
-  onlineState.lastConfig = {
-    mode: onlineState.mode,
-    impostors: onlineState.impostors,
-    pistaActiva,
-    selectedCategories: new Set(onlineState.selectedCategories),
-  };
-
   if (onlineState.mode === 'CLASICO') {
     secretWord = document.getElementById('onlineSecretWord').value.trim();
     if (!secretWord) {
@@ -2171,32 +2162,9 @@ function listenAdminEnd(totalPlayers, secretWord, impostorIds, playersObj) {
 }
 
 async function newOnlineRound() {
-  if (!onlineState.lastConfig) { goToOnlineSetup(); return; }
-
-  // Restaurar config guardada
-  if (onlineState.lastConfig) {
-    onlineState.mode = onlineState.lastConfig.mode;
-    onlineState.impostors = onlineState.lastConfig.impostors;
-    onlineState.selectedCategories = new Set(onlineState.lastConfig.selectedCategories);
-  }
-  if (onlineState.mode === 'CLASICO') {
-    // Modo clásico: pedir nueva palabra antes de lanzar
-    selectOnlineMode('CLASICO');
-    document.getElementById('onlineSecretWord').value = '';
-    document.getElementById('onlineTogglePista').checked = onlineState.lastConfig.pistaActiva;
-    roomRef.child('players').once('value', snap => {
-      const count = Object.keys(snap.val()||{}).length;
-      document.getElementById('onlineTotalPlayers').textContent = count;
-      onlineState.impostors = Math.min(onlineState.impostors, count - 1);
-      document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
-    });
-    goTo('screenOnlineSetup');
-  } else {
-    // Modo categorías: lanzar directo con misma config
-    buildOnlineCatGrid();
-    document.getElementById('onlineTogglePista').checked = onlineState.lastConfig.pistaActiva;
-    await launchOnlineGame();
-  }
+  await roomRef.update({ status:'lobby', game:null });
+  goTo('screenAdminLobby');
+  listenAdminLobby();
 }
 
 // ----- UNIRSE -----
@@ -2301,23 +2269,16 @@ async function showOnlineCard() {
   document.getElementById('tapHintOnline').textContent = '👆 Tocá la tarjeta para revelar tu rol';
   goTo('screenOnlineCard');
 
-  // Listen for new round or back to lobby
+  // Listen for status back to lobby (new round)
   const sRef = roomRef.child('status');
-  let lastStatus = 'playing';
   const sHandler = sRef.on('value', snap => {
-    const status = snap.val();
-    if (status === 'lobby') {
+    if (snap.val()==='lobby') {
       clearListeners();
       document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
       onlineState.cardRevealed = false;
       goTo('screenPlayerWaiting');
       listenPlayerWaiting();
-    } else if (status === 'playing' && lastStatus === 'playing') {
-      // Nueva ronda directa sin pasar por lobby
-      onlineState.cardRevealed = false;
-      showOnlineCard();
     }
-    lastStatus = status;
   });
   unsubscribers.push(()=>sRef.off('value',sHandler));
 }
@@ -2340,21 +2301,14 @@ function handleOnlineCardTap() {
 
 function listenWaitEnd() {
   const sRef = roomRef.child('status');
-  let lastStatus = 'playing';
   const sHandler = sRef.on('value', snap => {
-    const status = snap.val();
-    if (status === 'lobby') {
+    if (snap.val()==='lobby') {
       clearListeners();
       document.getElementById('waitingRoomTitle').textContent = 'Sala '+onlineState.roomCode;
       onlineState.cardRevealed = false;
       goTo('screenPlayerWaiting');
       listenPlayerWaiting();
-    } else if (status === 'playing' && lastStatus === 'playing') {
-      // Nueva ronda directa sin pasar por lobby (ej: categorías con misma config)
-      onlineState.cardRevealed = false;
-      showOnlineCard();
     }
-    lastStatus = status;
   });
   unsubscribers.push(()=>sRef.off('value',sHandler));
 }
