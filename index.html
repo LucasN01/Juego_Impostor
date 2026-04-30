@@ -2105,8 +2105,42 @@ async function launchOnlineGame() {
     }
   });
 
-  // Admin also sees his own card like any other player
-  showOnlineCard();
+  // Admin shows his own card using in-memory data (no extra Firebase read needed)
+  const myAssignment = assignments[onlineState.myId];
+  onlineState.cardRevealed = false;
+
+  document.getElementById('onlineCardPlayerName').textContent = onlineState.myName;
+  document.getElementById('onlineCardPlayerNameBack').textContent = onlineState.myName;
+  document.getElementById('onlineCardInner').classList.remove('flipped');
+
+  if (myAssignment && myAssignment.isImpostor) {
+    document.getElementById('onlineCardBack').className = 'card-back impostor game-card-face';
+    document.getElementById('onlineCardWord').innerHTML = `<div class="card-impostor-label">IMPOSTOR</div>`;
+    document.getElementById('onlineCardPista').innerHTML = myAssignment.pista
+      ? `<div class="card-pista"><strong>Pista:</strong> ${myAssignment.pista}</div>` : '';
+  } else {
+    document.getElementById('onlineCardBack').className = 'card-back normal game-card-face';
+    document.getElementById('onlineCardWord').innerHTML = `<div class="card-word">${secretWord}</div>`;
+    document.getElementById('onlineCardPista').innerHTML = categoria
+      ? `<div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);">Categoría: ${categoria}</div>` : '';
+  }
+
+  document.getElementById('onlineWaitOthers').textContent = '';
+  clearListeners();
+  goTo('screenOnlineCard');
+
+  // Listen for new round (status back to lobby)
+  const sRef = roomRef.child('status');
+  const sHandler = sRef.on('value', snap => {
+    if (snap.val() === 'lobby') {
+      clearListeners();
+      document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
+      onlineState.cardRevealed = false;
+      goTo('screenAdminLobby');
+      listenAdminLobby();
+    }
+  });
+  unsubscribers.push(() => sRef.off('value', sHandler));
 }
 
 function launchConfettiOnline() {
