@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -420,8 +423,72 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
     color: rgba(255,255,255,0.6);
     font-weight: 500;
 }
-  
-  
+
+/* ========== ONLINE MODE ========== */
+.online-option{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:20px 18px;width:100%;max-width:360px;
+  display:flex;align-items:center;gap:16px;
+  cursor:pointer;transition:all 0.2s;margin-bottom:12px;
+}
+.online-option:hover{border-color:var(--border2);background:var(--surface);}
+.online-option:active{transform:scale(0.97);}
+.online-option-icon{font-size:2.2rem;flex-shrink:0;}
+.online-option-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;margin-bottom:3px;}
+.online-option-desc{font-size:0.78rem;color:var(--muted);line-height:1.4;}
+
+.room-code-box{
+  background:var(--surface2);border:2px solid var(--border2);
+  border-radius:20px;padding:18px 28px;text-align:center;
+  cursor:pointer;width:100%;max-width:360px;
+  transition:border-color 0.15s;margin-bottom:6px;
+}
+.room-code-box:active{border-color:var(--accent);}
+.room-code-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:4px;}
+.room-code-text{
+  font-family:'Syne',sans-serif;font-weight:800;
+  font-size:2.6rem;letter-spacing:10px;color:var(--text);line-height:1.2;
+}
+.player-list-online{width:100%;max-width:360px;}
+.player-item-online{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:12px;margin-bottom:8px;
+}
+.p-avatar{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;
+  background:rgba(230,57,70,0.12);border:1px solid rgba(230,57,70,0.25);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;color:var(--accent2);
+}
+.p-name{font-size:0.9rem;font-weight:500;flex:1;}
+.admin-tag{
+  font-size:10px;background:rgba(230,57,70,0.12);color:var(--accent2);
+  border-radius:4px;padding:2px 6px;letter-spacing:0.5px;
+  text-transform:uppercase;font-weight:500;
+}
+.waiting-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 16px;background:rgba(244,162,97,0.1);
+  border:1px solid rgba(244,162,97,0.25);border-radius:999px;
+  color:var(--gold);font-size:13px;font-weight:500;margin-bottom:1.5rem;
+}
+.live-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 16px;background:rgba(46,196,182,0.1);
+  border:1px solid rgba(46,196,182,0.25);border-radius:999px;
+  color:var(--green);font-size:13px;font-weight:500;margin-bottom:1.5rem;
+}
+.pulse-dot{
+  width:7px;height:7px;border-radius:50%;background:currentColor;
+  animation:pulse 1.5s ease-in-out infinite;
+}
+.online-err{
+  color:var(--accent2);font-size:0.85rem;text-align:center;
+  margin-top:0.5rem;display:none;padding:8px 12px;
+  background:rgba(230,57,70,0.08);border-radius:10px;
+  border:1px solid rgba(230,57,70,0.2);width:100%;max-width:360px;
+}
 </style>
 </head>
 <body>
@@ -436,11 +503,258 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
   </div>
   <div class="logo-title">EL<br><span>IMPOSTOR</span></div>
   <p class="logo-sub">Un jugador no sabe la palabra secreta. ¿Podés encontrarlo?</p>
-  <button class="btn btn-primary" onclick="goTo('screenPlayers')" style="margin-bottom:12px;">
+  <button class="btn btn-primary" onclick="goTo('screenModeSelector')" style="margin-bottom:12px;">
     Empezar partida
   </button>
   <button class="btn btn-ghost" onclick="showRules()">¿Cómo se juega?</button>
   <div class="footer-text">Programmed by LGN2001</div>
+</div>
+
+<!-- SELECTOR LOCAL / ONLINE -->
+<div class="screen" id="screenModeSelector">
+  <button class="back-btn" onclick="goTo('screenHome')"><span class="back-arrow">←</span> Inicio</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="logo-badge" style="margin-bottom:1.5rem;">¿Cómo van a jugar?</div>
+    <h3 class="title" style="margin-bottom:0.5rem;text-align:center;">Elegí el modo</h3>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:2rem;text-align:center;">Local: pasan el teléfono.<br>Online: cada uno usa el suyo.</p>
+
+    <div class="online-option" onclick="goTo('screenPlayers')">
+      <div class="online-option-icon">📱</div>
+      <div>
+        <div class="online-option-title">Juego Local</div>
+        <div class="online-option-desc">Un solo teléfono. Los jugadores se lo van pasando para ver su rol.</div>
+      </div>
+    </div>
+
+    <div class="online-option" onclick="goTo('screenOnlineMenu')" style="border-color:rgba(230,57,70,0.3);background:rgba(230,57,70,0.05);">
+      <div class="online-option-icon">🌐</div>
+      <div>
+        <div class="online-option-title" style="color:var(--accent2);">Juego Online</div>
+        <div class="online-option-desc">Cada jugador usa su celular. El admin crea la sala y configura la partida.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ONLINE MENU: CREAR O UNIRSE -->
+<div class="screen" id="screenOnlineMenu">
+  <button class="back-btn" onclick="goTo('screenModeSelector')"><span class="back-arrow">←</span> Atrás</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="logo-badge" style="margin-bottom:1.5rem;">🌐 Modo Online</div>
+    <h3 class="title" style="margin-bottom:2rem;text-align:center;">¿Qué querés hacer?</h3>
+
+    <div class="online-option" onclick="goTo('screenCreateRoom')">
+      <div class="online-option-icon">🏠</div>
+      <div>
+        <div class="online-option-title">Crear sala</div>
+        <div class="online-option-desc">Sos el organizador. Configurás la partida y arrancás el juego.</div>
+      </div>
+    </div>
+    <div class="online-option" onclick="goTo('screenJoinRoom')">
+      <div class="online-option-icon">🚪</div>
+      <div>
+        <div class="online-option-title">Unirse a una sala</div>
+        <div class="online-option-desc">Ingresás el código que te pasó el organizador.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CREAR SALA -->
+<div class="screen" id="screenCreateRoom">
+  <button class="back-btn" onclick="goTo('screenOnlineMenu')"><span class="back-arrow">←</span> Atrás</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="logo-badge" style="margin-bottom:1.5rem;">🏠 Nueva Sala</div>
+    <h3 class="title" style="margin-bottom:0.5rem;text-align:center;">Crear sala</h3>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.5rem;text-align:center;">Tu nombre como organizador</p>
+    <div class="input-group">
+      <label class="input-label">Tu nombre</label>
+      <input type="text" id="adminNameInput" placeholder="Ej: Lucas" maxlength="20">
+    </div>
+    <div id="createRoomErr" class="online-err">Ingresá tu nombre para continuar.</div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-primary" onclick="createRoom()">Crear sala →</button>
+  </div>
+</div>
+
+<!-- SALA ADMIN: LOBBY -->
+<div class="screen" id="screenAdminLobby">
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="waiting-badge"><span class="pulse-dot"></span>Esperando jugadores...</div>
+    <h3 class="title" style="margin-bottom:0.5rem;text-align:center;">Tu sala</h3>
+    <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;text-align:center;">Compartí este código con los demás</p>
+    <div class="room-code-box" onclick="copyRoomCode()" title="Tocá para copiar">
+      <div class="room-code-label">Código de sala</div>
+      <div class="room-code-text" id="displayRoomCode">----</div>
+    </div>
+    <p style="color:var(--muted);font-size:0.75rem;margin-bottom:1.5rem;">👆 Tocá para copiar</p>
+    <div style="width:100%;max-width:360px;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+      <p class="section-label" style="margin:0;">Jugadores en sala</p>
+      <span style="font-size:0.8rem;color:var(--muted);" id="adminPlayerCount">0 jugadores</span>
+    </div>
+    <div class="player-list-online" id="adminPlayerList"></div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-primary" id="btnStartOnline" onclick="goToOnlineSetup()">Configurar partida →</button>
+    <div style="height:0.5rem;"></div>
+    <button class="btn btn-ghost" onclick="leaveRoom()">Cancelar sala</button>
+  </div>
+</div>
+
+<!-- SETUP ONLINE (admin configura) -->
+<div class="screen" id="screenOnlineSetup">
+  <button class="back-btn" onclick="goTo('screenAdminLobby')"><span class="back-arrow">←</span> Lobby</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="live-badge"><span class="pulse-dot"></span>Sala activa</div>
+    <h3 class="title" style="margin-bottom:1.5rem;text-align:center;">Configuración</h3>
+
+    <div style="width:100%;">
+      <p class="section-label">Modo de juego</p>
+      <div class="mode-grid">
+        <div class="mode-card active" id="onlineModeClasico" onclick="selectOnlineMode('CLASICO')">
+          <span class="mode-icon">🔤</span>
+          <span class="mode-name">Clásico</span>
+          <span class="mode-desc">Vos elegís la palabra</span>
+        </div>
+        <div class="mode-card" id="onlineModeCategorias" onclick="selectOnlineMode('CATEGORIAS')">
+          <span class="mode-icon">🎲</span>
+          <span class="mode-name">Categorías</span>
+          <span class="mode-desc">Palabra aleatoria</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="width:100%;">
+      <p class="section-label">Impostores</p>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="changeOnlineImpostors(-1)">−</button>
+        <span class="stepper-val" id="onlineImpostorCount">1</span>
+        <button class="stepper-btn" onclick="changeOnlineImpostors(1)">+</button>
+        <span style="font-size:0.85rem;color:var(--muted);margin-left:4px;">de <span id="onlineTotalPlayers">?</span> jugadores</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="width:100%;">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Pista para el impostor</div>
+          <div class="toggle-desc">El impostor ve una categoría genérica</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="onlineTogglePista">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Palabra (Clásico) -->
+    <div id="onlineWordSection" style="width:100%;margin-bottom:1rem;">
+      <p class="section-label">Palabra secreta</p>
+      <input type="text" id="onlineSecretWord" placeholder="Ej: Lionel Messi, Pizza, Roma..." style="width:100%;">
+    </div>
+
+    <!-- Categorias -->
+    <div id="onlineCatSection" style="width:100%;margin-bottom:1rem;display:none;">
+      <p class="section-label">Elegí categorías</p>
+      <div class="cat-grid" id="onlineCatGrid"></div>
+    </div>
+
+    <div style="height:1rem;"></div>
+    <button class="btn btn-primary" onclick="launchOnlineGame()">¡Lanzar partida! 🚀</button>
+    <div id="onlineSetupErr" class="online-err" style="margin-top:0.75rem;"></div>
+  </div>
+</div>
+
+<!-- UNIRSE A SALA -->
+<div class="screen" id="screenJoinRoom">
+  <button class="back-btn" onclick="goTo('screenOnlineMenu')"><span class="back-arrow">←</span> Atrás</button>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="logo-badge" style="margin-bottom:1.5rem;">🚪 Unirse</div>
+    <h3 class="title" style="margin-bottom:0.5rem;text-align:center;">Unirse a sala</h3>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.5rem;text-align:center;">Ingresá el código de sala y tu nombre</p>
+    <div class="input-group">
+      <label class="input-label">Código de sala</label>
+      <input type="text" id="joinCodeInput" placeholder="Ej: ABCD" maxlength="4" style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem;font-family:'Syne',sans-serif;font-weight:700;text-align:center;">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Tu nombre</label>
+      <input type="text" id="joinNameInput" placeholder="Ej: Marcos" maxlength="20">
+    </div>
+    <div id="joinRoomErr" class="online-err"></div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-primary" onclick="joinRoom()">Unirse →</button>
+  </div>
+</div>
+
+<!-- JUGADOR: SALA DE ESPERA -->
+<div class="screen" id="screenPlayerWaiting">
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
+    <div class="waiting-badge"><span class="pulse-dot"></span>Esperando al admin...</div>
+    <h3 class="title" style="margin-bottom:0.5rem;text-align:center;" id="waitingRoomTitle">Sala ----</h3>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.5rem;text-align:center;">El organizador va a arrancar el juego cuando estén todos.</p>
+    <div style="width:100%;max-width:360px;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+      <p class="section-label" style="margin:0;">Jugadores en sala</p>
+      <span style="font-size:0.8rem;color:var(--muted);" id="guestPlayerCount">0 jugadores</span>
+    </div>
+    <div class="player-list-online" id="guestPlayerList"></div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-ghost" onclick="leaveRoom()">Salir de la sala</button>
+  </div>
+</div>
+
+<!-- JUGADOR: VER ROL ONLINE -->
+<div class="screen" id="screenOnlineCard">
+  <div class="anim-up" style="width:100%;display:flex;flex-direction:column;align-items:center;padding-top:2rem;">
+    <div class="live-badge" style="margin-bottom:1.5rem;"><span class="pulse-dot"></span>Partida en curso</div>
+    <div class="game-card" onclick="handleOnlineCardTap()">
+      <div class="game-card-inner" id="onlineCardInner">
+        <div class="card-front game-card-face">
+          <div class="card-question pulse" id="onlineCardQuestion">?</div>
+          <p class="card-player-name" id="onlineCardPlayerName">---</p>
+          <p class="card-hint">Toca para ver tu rol</p>
+        </div>
+        <div class="card-back normal game-card-face" id="onlineCardBack">
+          <p class="card-player-name" style="font-size:1.1rem;color:var(--muted);margin-bottom:2rem;" id="onlineCardPlayerNameBack">---</p>
+          <div class="card-word" id="onlineCardWord"></div>
+          <div id="onlineCardPista"></div>
+        </div>
+      </div>
+    </div>
+    <p class="tap-hint" style="margin-top:1.5rem;">👆 Tocá la tarjeta para revelar tu rol</p>
+    <p style="color:var(--muted);font-size:0.8rem;margin-top:1rem;text-align:center;" id="onlineWaitOthers"></p>
+  </div>
+</div>
+
+<!-- JUGADOR: ESPERAR FIN DE RONDA (para los que ya revelaron) -->
+<div class="screen" id="screenOnlineWaitEnd">
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+    <div style="font-size:4rem;margin-bottom:1rem;">✅</div>
+    <h3 class="title" style="margin-bottom:0.5rem;">¡Ya viste tu rol!</h3>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:2rem;">Esperá a que todos lo vean, y después... ¡a discutir!</p>
+    <div class="waiting-badge"><span class="pulse-dot"></span>Esperando a los demás...</div>
+    <div style="height:1rem;"></div>
+    <button class="btn btn-ghost" onclick="leaveRoom()">Salir del juego</button>
+  </div>
+</div>
+
+<!-- TODOS LISTOS ONLINE (admin ve esto) -->
+<div class="screen" id="screenOnlineEnd">
+  <div class="confetti-container" id="confettiContainerOnline" style="position:fixed;inset:0;pointer-events:none;z-index:100;overflow:hidden;"></div>
+  <div class="anim-up" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+    <div class="end-icon">🎭</div>
+    <h3 class="title" style="margin-bottom:0.5rem;">¡Todos listos!</h3>
+    <p style="color:var(--text);font-size:1.1rem;font-weight:500;margin-bottom:0.5rem;" id="onlineEndWord"></p>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:2rem;" id="onlineEndImpostors"></p>
+    <div style="width:100%;display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-primary" onclick="newOnlineRound()">Nueva ronda</button>
+      <button class="btn btn-ghost" onclick="leaveRoom()">Salir al inicio</button>
+    </div>
+  </div>
 </div>
 
 <div class="screen" id="screenPlayers">
@@ -1528,6 +1842,457 @@ function launchConfetti() {
     container.appendChild(piece);
     setTimeout(() => piece.remove(), 4000);
   }
+}
+
+// =============================================
+// ============ MODO ONLINE ====================
+// =============================================
+
+// ----- Firebase config -----
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAE8FlEPKh5WKto5emBBvXYBYAsnx8MLeI",
+  authDomain: "impostor-game-14706.firebaseapp.com",
+  databaseURL: "https://impostor-game-14706-default-rtdb.firebaseio.com",
+  projectId: "impostor-game-14706",
+  storageBucket: "impostor-game-14706.firebasestorage.app",
+  messagingSenderId: "507150859344",
+  appId: "1:507150859344:web:dafd4a09925b412b3f2555"
+};
+
+// Estado online
+let onlineState = {
+  roomCode: '',
+  myId: '',
+  myName: '',
+  isAdmin: false,
+  mode: 'CLASICO',
+  impostors: 1,
+  selectedCategories: new Set(['Países','Fútbol','Cine y TV']),
+  cardRevealed: false,
+};
+
+let db = null;
+let roomRef = null;
+let unsubscribers = [];
+
+function initFirebase() {
+  if (db) return true;
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    return true;
+  } catch(e) {
+    showFirebaseError();
+    return false;
+  }
+}
+
+function showFirebaseError() {
+  alert('⚠️ Para el modo online necesitás configurar Firebase.\n\nReemplazá el objeto FIREBASE_CONFIG en el código con los datos de tu proyecto de Firebase (gratis en firebase.google.com).');
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2,10);
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+// ----- Cleanup listeners -----
+function clearListeners() {
+  unsubscribers.forEach(fn => fn());
+  unsubscribers = [];
+}
+
+// ----- Crear sala -----
+async function createRoom() {
+  const name = document.getElementById('adminNameInput').value.trim();
+  const errEl = document.getElementById('createRoomErr');
+  errEl.style.display = 'none';
+  if (!name) { errEl.style.display='block'; return; }
+  if (!initFirebase()) return;
+
+  const code = generateRoomCode();
+  const myId = uid();
+  onlineState.roomCode = code;
+  onlineState.myId = myId;
+  onlineState.myName = name;
+  onlineState.isAdmin = true;
+  roomRef = db.ref('rooms/' + code);
+
+  try {
+    await roomRef.set({
+      status: 'lobby',
+      adminId: myId,
+      createdAt: Date.now(),
+      players: { [myId]: { name, isAdmin:true, ready:false, joined: Date.now() } }
+    });
+
+    // Auto-cleanup after 3 hours
+    roomRef.child('createdAt').onDisconnect().remove();
+
+    document.getElementById('displayRoomCode').textContent = code;
+    goTo('screenAdminLobby');
+    listenAdminLobby();
+
+    // Setup online config defaults
+    document.getElementById('onlineTotalPlayers').textContent = '?';
+    document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
+    buildOnlineCatGrid();
+
+  } catch(e) {
+    alert('Error al crear sala. Revisá tu conexión.');
+  }
+}
+
+function copyRoomCode() {
+  navigator.clipboard.writeText(onlineState.roomCode).then(() => {
+    const el = document.getElementById('displayRoomCode');
+    const prev = el.textContent;
+    el.textContent = '✓✓✓';
+    setTimeout(() => el.textContent = prev, 1200);
+  });
+}
+
+function listenAdminLobby() {
+  clearListeners();
+  const ref = roomRef.child('players');
+  const handler = ref.on('value', snap => {
+    const players = snap.val() || {};
+    const list = Object.entries(players).sort((a,b) => a[1].joined - b[1].joined);
+    const container = document.getElementById('adminPlayerList');
+    container.innerHTML = '';
+    list.forEach(([id, p]) => {
+      const div = document.createElement('div');
+      div.className = 'player-item-online';
+      div.innerHTML = `
+        <div class="p-avatar">${p.name[0].toUpperCase()}</div>
+        <span class="p-name">${p.name}</span>
+        ${p.isAdmin ? '<span class="admin-tag">Admin</span>' : ''}
+      `;
+      container.appendChild(div);
+    });
+    document.getElementById('adminPlayerCount').textContent = `${list.length} jugador${list.length!==1?'es':''}`;
+    document.getElementById('onlineTotalPlayers').textContent = list.length;
+    document.getElementById('onlineImpostorCount').textContent = Math.min(onlineState.impostors, list.length-1);
+    onlineState.impostors = Math.min(onlineState.impostors, list.length-1);
+  });
+  unsubscribers.push(() => ref.off('value', handler));
+
+  // Listen for status changes (new round etc.)
+  const statusRef = roomRef.child('status');
+  const statusHandler = statusRef.on('value', snap => {
+    const status = snap.val();
+    if (status === 'playing') {
+      // Check if we already navigated
+    }
+  });
+  unsubscribers.push(() => statusRef.off('value', statusHandler));
+}
+
+function goToOnlineSetup() {
+  goTo('screenOnlineSetup');
+  // Update total players display
+  roomRef.child('players').once('value', snap => {
+    const count = Object.keys(snap.val()||{}).length;
+    document.getElementById('onlineTotalPlayers').textContent = count;
+    onlineState.impostors = Math.min(onlineState.impostors, count-1);
+    document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
+  });
+}
+
+function selectOnlineMode(mode) {
+  onlineState.mode = mode;
+  document.getElementById('onlineModeClasico').classList.toggle('active', mode==='CLASICO');
+  document.getElementById('onlineModeCategorias').classList.toggle('active', mode==='CATEGORIAS');
+  document.getElementById('onlineWordSection').style.display = mode==='CLASICO'?'block':'none';
+  document.getElementById('onlineCatSection').style.display = mode==='CATEGORIAS'?'block':'none';
+}
+
+function changeOnlineImpostors(delta) {
+  roomRef.child('players').once('value', snap => {
+    const max = Object.keys(snap.val()||{}).length - 1;
+    onlineState.impostors = Math.max(1, Math.min(max, onlineState.impostors + delta));
+    document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
+  });
+}
+
+function buildOnlineCatGrid() {
+  const grid = document.getElementById('onlineCatGrid');
+  grid.innerHTML = '';
+  const catIcons = {"Países":"🌍","Fútbol":"⚽","Cine y TV":"🎬","Famosos Arg":"🇦🇷","Famosos":"⭐","Objetos":"📦"};
+  Object.keys(CATEGORIES).forEach(cat => {
+    const btn = document.createElement('div');
+    btn.className = 'btn-cat' + (onlineState.selectedCategories.has(cat) ? ' selected' : '');
+    btn.innerHTML = `<span>${catIcons[cat]||'📌'}</span><span>${cat}</span>`;
+    btn.onclick = () => {
+      if (onlineState.selectedCategories.has(cat)) {
+        if (onlineState.selectedCategories.size > 1) onlineState.selectedCategories.delete(cat);
+      } else {
+        onlineState.selectedCategories.add(cat);
+      }
+      btn.classList.toggle('selected', onlineState.selectedCategories.has(cat));
+    };
+    grid.appendChild(btn);
+  });
+}
+
+async function launchOnlineGame() {
+  const errEl = document.getElementById('onlineSetupErr');
+  errEl.style.display='none';
+
+  let secretWord = '', categoria = '';
+  const pistaActiva = document.getElementById('onlineTogglePista').checked;
+
+  if (onlineState.mode === 'CLASICO') {
+    secretWord = document.getElementById('onlineSecretWord').value.trim();
+    if (!secretWord) {
+      errEl.textContent = 'Ingresá una palabra secreta.';
+      errEl.style.display='block';
+      return;
+    }
+  } else {
+    const allWords = [];
+    onlineState.selectedCategories.forEach(cat => {
+      CATEGORIES[cat].forEach(w => allWords.push({word:w, cat}));
+    });
+    const chosen = allWords[Math.floor(Math.random()*allWords.length)];
+    secretWord = chosen.word;
+    categoria = chosen.cat;
+  }
+
+  // Get players
+  const snap = await roomRef.child('players').once('value');
+  const playersObj = snap.val() || {};
+  const playersList = Object.entries(playersObj).sort((a,b)=>a[1].joined-b[1].joined);
+  const playerIds = playersList.map(([id])=>id);
+
+  // Assign impostors
+  const shuffled = [...playerIds].sort(()=>Math.random()-0.5);
+  const impostorIds = new Set(shuffled.slice(0, onlineState.impostors));
+
+  // Build assignments
+  const assignments = {};
+  playerIds.forEach(id => {
+    const isImpostor = impostorIds.has(id);
+    let pista = '';
+    if (isImpostor && pistaActiva && categoria) {
+      pista = getPista(secretWord, categoria);
+    }
+    assignments[id] = { isImpostor, pista, ready: false };
+  });
+
+  // Push game state
+  await roomRef.update({
+    status: 'playing',
+    game: {
+      secretWord,
+      categoria,
+      pistaActiva,
+      impostors: onlineState.impostors,
+      mode: onlineState.mode,
+      assignments,
+      startedAt: Date.now(),
+      readyCount: 0,
+    }
+  });
+
+  // Admin goes to end screen to monitor
+  listenAdminEnd(playerIds.length, secretWord, impostorIds, playersObj);
+  goTo('screenOnlineEnd');
+  document.getElementById('onlineEndWord').textContent = `Palabra: ${secretWord}`;
+  document.getElementById('onlineEndImpostors').textContent = `Impostores: ${[...impostorIds].map(id => playersObj[id]?.name||id).join(', ')}`;
+  launchConfettiOnline();
+}
+
+function launchConfettiOnline() {
+  const container = document.getElementById('confettiContainerOnline');
+  container.innerHTML = '';
+  const colors = ['#e63946','#f4a261','#2ec4b6','#7b2d8b','#f8f8f8','#ff6b6b'];
+  for (let i=0;i<50;i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `left:${Math.random()*100}%;top:${-10-Math.random()*20}px;background:${colors[Math.floor(Math.random()*colors.length)]};transform:rotate(${Math.random()*360}deg);width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;animation-duration:${2+Math.random()*2}s;animation-delay:${Math.random()*0.8}s;`;
+    container.appendChild(p);
+    setTimeout(()=>p.remove(),4000);
+  }
+}
+
+function listenAdminEnd(totalPlayers, secretWord, impostorIds, playersObj) {
+  clearListeners();
+  // just keep listening to lobby in background for new round
+}
+
+async function newOnlineRound() {
+  await roomRef.update({ status:'lobby', game:null });
+  goTo('screenAdminLobby');
+  listenAdminLobby();
+}
+
+// ----- UNIRSE -----
+async function joinRoom() {
+  const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  const name = document.getElementById('joinNameInput').value.trim();
+  const errEl = document.getElementById('joinRoomErr');
+  errEl.style.display='none';
+
+  if (!code || code.length!==4) { errEl.textContent='Ingresá el código de 4 letras.'; errEl.style.display='block'; return; }
+  if (!name) { errEl.textContent='Ingresá tu nombre.'; errEl.style.display='block'; return; }
+
+  if (!initFirebase()) return;
+
+  const ref = db.ref('rooms/'+code);
+  let snap;
+  try { snap = await ref.once('value'); } catch(e) { errEl.textContent='Error de conexión.'; errEl.style.display='block'; return; }
+
+  if (!snap.exists()) { errEl.textContent='No existe esa sala. Revisá el código.'; errEl.style.display='block'; return; }
+
+  const roomData = snap.val();
+  if (roomData.status === 'playing') { errEl.textContent='La partida ya comenzó. Esperá la próxima ronda.'; errEl.style.display='block'; return; }
+
+  const myId = uid();
+  onlineState.roomCode = code;
+  onlineState.myId = myId;
+  onlineState.myName = name;
+  onlineState.isAdmin = false;
+  roomRef = ref;
+  onlineState.cardRevealed = false;
+
+  await ref.child('players/'+myId).set({ name, isAdmin:false, ready:false, joined:Date.now() });
+  ref.child('players/'+myId).onDisconnect().remove();
+
+  document.getElementById('waitingRoomTitle').textContent = 'Sala ' + code;
+  goTo('screenPlayerWaiting');
+  listenPlayerWaiting();
+}
+
+function listenPlayerWaiting() {
+  clearListeners();
+
+  // Listen players list
+  const pRef = roomRef.child('players');
+  const pHandler = pRef.on('value', snap => {
+    const players = snap.val()||{};
+    const list = Object.entries(players).sort((a,b)=>a[1].joined-b[1].joined);
+    const container = document.getElementById('guestPlayerList');
+    container.innerHTML='';
+    list.forEach(([id,p])=>{
+      const div = document.createElement('div');
+      div.className='player-item-online';
+      div.innerHTML=`<div class="p-avatar">${p.name[0].toUpperCase()}</div><span class="p-name">${p.name}</span>${p.isAdmin?'<span class="admin-tag">Admin</span>':''}`;
+      container.appendChild(div);
+    });
+    document.getElementById('guestPlayerCount').textContent=`${list.length} jugador${list.length!==1?'es':''}`;
+  });
+  unsubscribers.push(()=>pRef.off('value',pHandler));
+
+  // Listen game start
+  const sRef = roomRef.child('status');
+  const sHandler = sRef.on('value', snap => {
+    if (snap.val()==='playing') {
+      showOnlineCard();
+    }
+  });
+  unsubscribers.push(()=>sRef.off('value',sHandler));
+}
+
+async function showOnlineCard() {
+  clearListeners();
+  const gameSnap = await roomRef.child('game').once('value');
+  const game = gameSnap.val();
+  const myAssignment = game.assignments[onlineState.myId];
+
+  onlineState.cardRevealed = false;
+
+  // Set names on card
+  document.getElementById('onlineCardPlayerName').textContent = onlineState.myName;
+  document.getElementById('onlineCardPlayerNameBack').textContent = onlineState.myName;
+  document.getElementById('onlineCardInner').classList.remove('flipped');
+
+  if (myAssignment.isImpostor) {
+    document.getElementById('onlineCardBack').className = 'card-back impostor game-card-face';
+    document.getElementById('onlineCardWord').innerHTML = `<div class="card-impostor-label">IMPOSTOR</div>`;
+    if (myAssignment.pista) {
+      document.getElementById('onlineCardPista').innerHTML = `<div class="card-pista"><strong>Pista:</strong> ${myAssignment.pista}</div>`;
+    } else {
+      document.getElementById('onlineCardPista').innerHTML = '';
+    }
+  } else {
+    document.getElementById('onlineCardBack').className = 'card-back normal game-card-face';
+    document.getElementById('onlineCardWord').innerHTML = `<div class="card-word">${game.secretWord}</div>`;
+    if (game.categoria) {
+      document.getElementById('onlineCardPista').innerHTML = `<div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);">Categoría: ${game.categoria}</div>`;
+    } else {
+      document.getElementById('onlineCardPista').innerHTML = '';
+    }
+  }
+
+  document.getElementById('onlineWaitOthers').textContent = '';
+  goTo('screenOnlineCard');
+
+  // Listen for status back to lobby (new round)
+  const sRef = roomRef.child('status');
+  const sHandler = sRef.on('value', snap => {
+    if (snap.val()==='lobby') {
+      clearListeners();
+      document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
+      onlineState.cardRevealed = false;
+      goTo('screenPlayerWaiting');
+      listenPlayerWaiting();
+    }
+  });
+  unsubscribers.push(()=>sRef.off('value',sHandler));
+}
+
+function handleOnlineCardTap() {
+  if (onlineState.cardRevealed) return;
+  document.getElementById('onlineCardInner').classList.add('flipped');
+  onlineState.cardRevealed = true;
+
+  // Mark ready
+  roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
+  setTimeout(() => {
+    goTo('screenOnlineWaitEnd');
+    listenWaitEnd();
+  }, 1800);
+}
+
+function listenWaitEnd() {
+  const sRef = roomRef.child('status');
+  const sHandler = sRef.on('value', snap => {
+    if (snap.val()==='lobby') {
+      clearListeners();
+      document.getElementById('waitingRoomTitle').textContent = 'Sala '+onlineState.roomCode;
+      onlineState.cardRevealed = false;
+      goTo('screenPlayerWaiting');
+      listenPlayerWaiting();
+    }
+  });
+  unsubscribers.push(()=>sRef.off('value',sHandler));
+}
+
+// ----- Salir de sala -----
+function leaveRoom() {
+  clearListeners();
+  if (roomRef && onlineState.myId) {
+    if (onlineState.isAdmin) {
+      roomRef.remove();
+    } else {
+      roomRef.child('players/'+onlineState.myId).remove();
+    }
+  }
+  roomRef = null;
+  onlineState = {
+    roomCode:'', myId:'', myName:'', isAdmin:false,
+    mode:'CLASICO', impostors:1,
+    selectedCategories: new Set(['Países','Fútbol','Cine y TV']),
+    cardRevealed:false,
+  };
+  goTo('screenHome');
 }
 </script>
 </body>
