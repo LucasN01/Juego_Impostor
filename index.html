@@ -725,7 +725,7 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
         </div>
       </div>
     </div>
-    <p class="tap-hint" style="margin-top:1.5rem;">👆 Tocá la tarjeta para revelar tu rol</p>
+    <p class="tap-hint" id="tapHintOnline" style="margin-top:1.5rem;">👆 Tocá la tarjeta para revelar tu rol</p>
     <p style="color:var(--muted);font-size:0.8rem;margin-top:1rem;text-align:center;" id="onlineWaitOthers"></p>
   </div>
 </div>
@@ -740,6 +740,7 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
     <div id="adminNewRoundBtn" style="display:none;width:100%;margin-top:1.5rem;display:flex;flex-direction:column;gap:10px;">
       <p style="color:var(--muted);font-size:0.8rem;">Sos el admin — podés iniciar una nueva ronda cuando quieras.</p>
       <button class="btn btn-primary" onclick="newOnlineRound()">Nueva ronda</button>
+      <button class="btn btn-secondary" onclick="goToOnlineSetup()">Cambiar configuración</button>
     </div>
     <div style="height:1rem;"></div>
     <button class="btn btn-ghost" onclick="leaveRoom()">Salir del juego</button>
@@ -2052,6 +2053,14 @@ async function launchOnlineGame() {
   let secretWord = '', categoria = '';
   const pistaActiva = document.getElementById('onlineTogglePista').checked;
 
+  // Guardar config para reutilizar en nueva ronda
+  onlineState.lastConfig = {
+    mode: onlineState.mode,
+    impostors: onlineState.impostors,
+    pistaActiva,
+    selectedCategories: new Set(onlineState.selectedCategories),
+  };
+
   if (onlineState.mode === 'CLASICO') {
     secretWord = document.getElementById('onlineSecretWord').value.trim();
     if (!secretWord) {
@@ -2162,9 +2171,31 @@ function listenAdminEnd(totalPlayers, secretWord, impostorIds, playersObj) {
 }
 
 async function newOnlineRound() {
-  await roomRef.update({ status:'lobby', game:null });
-  goTo('screenAdminLobby');
-  listenAdminLobby();
+  if (!onlineState.lastConfig) { goToOnlineSetup(); return; }
+
+  // Restaurar config guardada
+  onlineState.mode = onlineState.lastConfig.mode;
+  onlineState.impostors = onlineState.lastConfig.impostors;
+  onlineState.selectedCategories = new Set(onlineState.lastConfig.selectedCategories);
+
+  if (onlineState.mode === 'CLASICO') {
+    // Modo clásico: pedir nueva palabra antes de lanzar
+    selectOnlineMode('CLASICO');
+    document.getElementById('onlineSecretWord').value = '';
+    document.getElementById('onlineTogglePista').checked = onlineState.lastConfig.pistaActiva;
+    roomRef.child('players').once('value', snap => {
+      const count = Object.keys(snap.val()||{}).length;
+      document.getElementById('onlineTotalPlayers').textContent = count;
+      onlineState.impostors = Math.min(onlineState.impostors, count - 1);
+      document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
+    });
+    goTo('screenOnlineSetup');
+  } else {
+    // Modo categorías: lanzar directo con misma config
+    buildOnlineCatGrid();
+    document.getElementById('onlineTogglePista').checked = onlineState.lastConfig.pistaActiva;
+    await launchOnlineGame();
+  }
 }
 
 // ----- UNIRSE -----
@@ -2283,19 +2314,19 @@ async function showOnlineCard() {
 }
 
 function handleOnlineCardTap() {
-  if (onlineState.cardRevealed) return;
-  document.getElementById('onlineCardInner').classList.add('flipped');
-  onlineState.cardRevealed = true;
-
-  // Mark ready
-  roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
-  setTimeout(() => {
+  if (!onlineState.cardRevealed) {
+    // Primer toque: revela la tarjeta
+    document.getElementById('onlineCardInner').classList.add('flipped');
+    document.getElementById('tapHintOnline').textContent = '👆 Tocá de nuevo para confirmar';
+    onlineState.cardRevealed = true;
+  } else {
+    // Segundo toque: avanza
+    roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
     goTo('screenOnlineWaitEnd');
-    // Show nueva ronda button only for admin
     const adminBtn = document.getElementById('adminNewRoundBtn');
     adminBtn.style.display = onlineState.isAdmin ? 'flex' : 'none';
     listenWaitEnd();
-  }, 1800);
+  }
 }
 
 function listenWaitEnd() {
