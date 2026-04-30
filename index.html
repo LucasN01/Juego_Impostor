@@ -725,7 +725,7 @@ input:checked + .toggle-slider:before{transform:translateX(22px);}
         </div>
       </div>
     </div>
-    <p class="tap-hint" id="tapHintOnline" style="margin-top:1.5rem;">👆 Tocá la tarjeta para revelar tu rol</p>
+    <p class="tap-hint" style="margin-top:1.5rem;">👆 Tocá la tarjeta para revelar tu rol</p>
     <p style="color:var(--muted);font-size:0.8rem;margin-top:1rem;text-align:center;" id="onlineWaitOthers"></p>
   </div>
 </div>
@@ -2266,7 +2266,6 @@ async function showOnlineCard() {
   }
 
   document.getElementById('onlineWaitOthers').textContent = '';
-  document.getElementById('tapHintOnline').textContent = '👆 Tocá la tarjeta para revelar tu rol';
   goTo('screenOnlineCard');
 
   // Listen for status back to lobby (new round)
@@ -2284,19 +2283,19 @@ async function showOnlineCard() {
 }
 
 function handleOnlineCardTap() {
-  if (!onlineState.cardRevealed) {
-    // Primer toque: revela la tarjeta
-    document.getElementById('onlineCardInner').classList.add('flipped');
-    document.getElementById('tapHintOnline').textContent = '👆 Tocá de nuevo para confirmar';
-    onlineState.cardRevealed = true;
-  } else {
-    // Segundo toque: avanza
-    roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
+  if (onlineState.cardRevealed) return;
+  document.getElementById('onlineCardInner').classList.add('flipped');
+  onlineState.cardRevealed = true;
+
+  // Mark ready
+  roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
+  setTimeout(() => {
     goTo('screenOnlineWaitEnd');
+    // Show nueva ronda button only for admin
     const adminBtn = document.getElementById('adminNewRoundBtn');
     adminBtn.style.display = onlineState.isAdmin ? 'flex' : 'none';
     listenWaitEnd();
-  }
+  }, 1800);
 }
 
 function listenWaitEnd() {
