@@ -404,6 +404,7 @@ async function createRoom() {
     // Auto-cleanup on disconnect
     roomRef.child('createdAt').onDisconnect().remove();
 
+    saveSession();
     document.getElementById('displayRoomCode').textContent = code;
     goTo('screenAdminLobby');
     listenAdminLobby();
@@ -700,6 +701,7 @@ async function joinRoom() {
   await ref.child('players/'+myId).set({ name, isAdmin:false, ready:false, joined:Date.now() });
   ref.child('players/'+myId).onDisconnect().remove();
 
+  saveSession();
   document.getElementById('waitingRoomTitle').textContent = 'Sala ' + code;
 
   // FIX: If game is already in progress, show a waiting message and go to waiting screen.
@@ -831,7 +833,7 @@ function listenWaitEnd() {
   unsubscribers.push(()=>sRef.off('value',sHandler));
 }
 
-// ----- Salir de sala -----
+// ----- Salir de sala (intencional) -----
 function leaveRoom() {
   clearListeners();
   if (roomRef && onlineState.myId) {
@@ -842,6 +844,7 @@ function leaveRoom() {
     }
   }
   roomRef = null;
+  clearSession();
   onlineState = {
     roomCode:'', myId:'', myName:'', isAdmin:false,
     mode:'CLASICO', impostors:1,
@@ -850,3 +853,160 @@ function leaveRoom() {
   };
   goTo('screenHome');
 }
+
+// =============================================
+// ======= PERSISTENCIA DE SESIÓN ==============
+// =============================================
+
+const SESSION_KEY = 'impostor_session';
+
+function saveSession() {
+  const data = {
+    roomCode: onlineState.roomCode,
+    myId: onlineState.myId,
+    myName: onlineState.myName,
+    isAdmin: onlineState.isAdmin,
+  };
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+// Llamado al cargar la página. Si hay sesión guardada, verifica en Firebase
+// si la sala y el jugador siguen existiendo y ofrece reconectarse.
+async function checkPreviousSession() {
+  const session = loadSession();
+  if (!session || !session.roomCode || !session.myId) return;
+
+  if (!initFirebase()) return;
+
+  const ref = db.ref('rooms/' + session.roomCode);
+  let snap;
+  try { snap = await ref.once('value'); } catch(e) { clearSession(); return; }
+
+  // Si la sala ya no existe, limpiar sesión silenciosamente
+  if (!snap.exists()) { clearSession(); return; }
+
+  const room = snap.val();
+
+  // Mostrar modal de reconexión
+  showReconnectModal(session, room, ref);
+}
+
+function showReconnectModal(session, room, ref) {
+  // Crear modal dinámicamente si no existe
+  let modal = document.getElementById('reconnectModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'reconnectModal';
+    modal.style.cssText = 'display:flex;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1.5rem;';
+    modal.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2rem;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1rem;">
+        <div style="font-size:2.5rem;">🔄</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.2rem;color:var(--text);">Sesión activa encontrada</div>
+        <p style="color:var(--muted);font-size:0.88rem;line-height:1.5;" id="reconnectDesc"></p>
+        <button class="btn btn-primary" id="reconnectBtn" style="width:100%;">Volver a la sala</button>
+        <button class="btn btn-ghost" id="reconnectCancelBtn" style="width:100%;">Empezar de nuevo</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  const statusLabel = room.status === 'playing' ? 'partida en curso' : 'sala en lobby';
+  const role = session.isAdmin ? 'administrador' : 'jugador';
+  document.getElementById('reconnectDesc').textContent =
+    `Eras ${role} "${session.myName}" en la sala ${session.roomCode} (${statusLabel}). ¿Querés volver?`;
+
+  document.getElementById('reconnectBtn').onclick = () => {
+    modal.remove();
+    reconnectToRoom(session, ref);
+  };
+  document.getElementById('reconnectCancelBtn').onclick = async () => {
+    modal.remove();
+    // Limpiar el jugador fantasma de Firebase antes de empezar de nuevo
+    try {
+      await ref.child('players/' + session.myId).remove();
+      // Si era admin y la sala queda sin admin, remover la sala entera
+      if (session.isAdmin) await ref.remove();
+    } catch(e) {}
+    clearSession();
+  };
+}
+
+async function reconnectToRoom(session, ref) {
+  if (!initFirebase()) return;
+
+  onlineState.roomCode = session.roomCode;
+  onlineState.myId = session.myId;
+  onlineState.myName = session.myName;
+  onlineState.isAdmin = session.isAdmin;
+  onlineState.cardRevealed = false;
+  roomRef = ref;
+
+  // Limpiar jugador fantasma (entrada anterior con mismo myId) y reescribir
+  // Esto también actualiza el timestamp de joined para que no aparezca duplicado.
+  await roomRef.child('players/' + session.myId).set({
+    name: session.myName,
+    isAdmin: session.isAdmin,
+    ready: false,
+    joined: session.isAdmin ? 0 : Date.now(), // admin siempre primero
+  });
+
+  // Desconexión limpia
+  roomRef.child('players/' + session.myId).onDisconnect().remove();
+
+  // Leer estado actual de la sala y navegar a donde corresponde
+  const snap = await roomRef.once('value');
+  const room = snap.val() || {};
+
+  if (room.status === 'playing') {
+    if (session.isAdmin) {
+      // Admin reconecta durante partida: puede ver su tarjeta si tiene assignment
+      const game = room.game || {};
+      const assignments = game.assignments || {};
+      if (assignments[session.myId]) {
+        _showMyOnlineCard(assignments, game.secretWord, game.categoria || '');
+      } else {
+        // No tiene assignment (raro), mandarlo al wait end con botón nueva ronda
+        goTo('screenOnlineWaitEnd');
+        document.getElementById('adminNewRoundBtn').style.display = 'flex';
+        listenWaitEnd();
+      }
+    } else {
+      // Guest reconecta durante partida
+      goTo('screenPlayerWaiting');
+      document.getElementById('guestPlayerCount').textContent = 'Reconectando...';
+      listenPlayerWaiting();
+      // Forzar showOnlineCard (ya está playing)
+      setTimeout(() => showOnlineCard(), 400);
+    }
+  } else {
+    // status === 'lobby'
+    if (session.isAdmin) {
+      document.getElementById('displayRoomCode').textContent = session.roomCode;
+      buildOnlineCatGrid();
+      document.getElementById('onlineTotalPlayers').textContent = '?';
+      document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
+      goTo('screenAdminLobby');
+      listenAdminLobby();
+    } else {
+      document.getElementById('waitingRoomTitle').textContent = 'Sala ' + session.roomCode;
+      goTo('screenPlayerWaiting');
+      listenPlayerWaiting();
+    }
+  }
+}
+
+// Inicializar al cargar la página
+window.addEventListener('load', () => {
+  checkPreviousSession();
+});
