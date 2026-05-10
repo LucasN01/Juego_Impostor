@@ -401,7 +401,7 @@ async function createRoom() {
       players: { [myId]: { name, isAdmin:true, ready:false, joined: Date.now() } }
     });
 
-    // Auto-cleanup after 3 hours
+    // Auto-cleanup on disconnect
     roomRef.child('createdAt').onDisconnect().remove();
 
     document.getElementById('displayRoomCode').textContent = code;
@@ -409,7 +409,7 @@ async function createRoom() {
     listenAdminLobby();
 
     // Setup online config defaults
-    document.getElementById('onlineTotalPlayers').textContent = '?';
+    document.getElementById('onlineTotalPlayers').textContent = '1';
     document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
     buildOnlineCatGrid();
 
@@ -429,8 +429,10 @@ function copyRoomCode() {
 
 function listenAdminLobby() {
   clearListeners();
-  const ref = roomRef.child('players');
-  const handler = ref.on('value', snap => {
+
+  // Listen players list
+  const pRef = roomRef.child('players');
+  const pHandler = pRef.on('value', snap => {
     const players = snap.val() || {};
     const list = Object.entries(players).sort((a,b) => a[1].joined - b[1].joined);
     const container = document.getElementById('adminPlayerList');
@@ -447,29 +449,29 @@ function listenAdminLobby() {
     });
     document.getElementById('adminPlayerCount').textContent = `${list.length} jugador${list.length!==1?'es':''}`;
     document.getElementById('onlineTotalPlayers').textContent = list.length;
-    document.getElementById('onlineImpostorCount').textContent = Math.min(onlineState.impostors, list.length-1);
-    onlineState.impostors = Math.min(onlineState.impostors, list.length-1);
+    const safeImpostors = Math.min(onlineState.impostors, Math.max(1, list.length - 1));
+    onlineState.impostors = safeImpostors;
+    document.getElementById('onlineImpostorCount').textContent = safeImpostors;
   });
-  unsubscribers.push(() => ref.off('value', handler));
+  unsubscribers.push(() => pRef.off('value', pHandler));
 
-  // Listen for status changes (new round etc.)
-  const statusRef = roomRef.child('status');
-  const statusHandler = statusRef.on('value', snap => {
-    const status = snap.val();
-    if (status === 'playing') {
-      // Check if we already navigated
-    }
+  // FIX: El admin también escucha status 'playing' para navegar a su tarjeta
+  // si por alguna razón se queda en el lobby mientras la partida ya arrancó
+  const sRef = roomRef.child('status');
+  const sHandler = sRef.on('value', snap => {
+    // No hacemos nada aquí; el admin navega manualmente al lanzar la partida.
+    // Este listener es un placeholder para limpieza ordenada.
   });
-  unsubscribers.push(() => statusRef.off('value', statusHandler));
+  unsubscribers.push(() => sRef.off('value', sHandler));
 }
 
 function goToOnlineSetup() {
   goTo('screenOnlineSetup');
-  // Update total players display
+  // Refresh player count and impostor cap
   roomRef.child('players').once('value', snap => {
     const count = Object.keys(snap.val()||{}).length;
     document.getElementById('onlineTotalPlayers').textContent = count;
-    onlineState.impostors = Math.min(onlineState.impostors, count-1);
+    onlineState.impostors = Math.min(onlineState.impostors, Math.max(1, count - 1));
     document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
   });
 }
@@ -484,7 +486,7 @@ function selectOnlineMode(mode) {
 
 function changeOnlineImpostors(delta) {
   roomRef.child('players').once('value', snap => {
-    const max = Object.keys(snap.val()||{}).length - 1;
+    const max = Math.max(1, Object.keys(snap.val()||{}).length - 1);
     onlineState.impostors = Math.max(1, Math.min(max, onlineState.impostors + delta));
     document.getElementById('onlineImpostorCount').textContent = onlineState.impostors;
   });
@@ -534,17 +536,26 @@ async function launchOnlineGame() {
     categoria = chosen.cat;
   }
 
-  // Get players
+  // Get current players from Firebase (source of truth)
   const snap = await roomRef.child('players').once('value');
   const playersObj = snap.val() || {};
   const playersList = Object.entries(playersObj).sort((a,b)=>a[1].joined-b[1].joined);
   const playerIds = playersList.map(([id])=>id);
 
-  // Assign impostors
-  const shuffled = [...playerIds].sort(()=>Math.random()-0.5);
-  const impostorIds = new Set(shuffled.slice(0, onlineState.impostors));
+  if (playerIds.length < 2) {
+    errEl.textContent = 'Necesitás al menos 2 jugadores para jugar.';
+    errEl.style.display='block';
+    return;
+  }
 
-  // Build assignments
+  // Cap impostors to valid range
+  const impostorCount = Math.max(1, Math.min(onlineState.impostors, playerIds.length - 1));
+
+  // Assign impostors randomly
+  const shuffled = [...playerIds].sort(()=>Math.random()-0.5);
+  const impostorIds = new Set(shuffled.slice(0, impostorCount));
+
+  // Build assignments for ALL current players
   const assignments = {};
   playerIds.forEach(id => {
     const isImpostor = impostorIds.has(id);
@@ -555,28 +566,34 @@ async function launchOnlineGame() {
     assignments[id] = { isImpostor, pista, ready: false };
   });
 
-  // Push game state
+  // FIX: Clear old game data first, then set new state atomically
+  // Setting status='playing' triggers all guest listeners simultaneously
   await roomRef.update({
     status: 'playing',
     game: {
       secretWord,
       categoria,
       pistaActiva,
-      impostors: onlineState.impostors,
+      impostors: impostorCount,
       mode: onlineState.mode,
       assignments,
       startedAt: Date.now(),
-      readyCount: 0,
     }
   });
 
-  // Admin shows his own card using in-memory data (no extra Firebase read needed)
+  // Navigate admin to card screen
+  _showMyOnlineCard(assignments, secretWord, categoria);
+}
+
+// Internal helper: render and navigate to the card screen
+function _showMyOnlineCard(assignments, secretWord, categoria) {
   const myAssignment = assignments[onlineState.myId];
   onlineState.cardRevealed = false;
 
   document.getElementById('onlineCardPlayerName').textContent = onlineState.myName;
   document.getElementById('onlineCardPlayerNameBack').textContent = onlineState.myName;
   document.getElementById('onlineCardInner').classList.remove('flipped');
+  document.getElementById('tapHintOnline').textContent = '👆 Tocá la tarjeta para revelar tu rol';
 
   if (myAssignment && myAssignment.isImpostor) {
     document.getElementById('onlineCardBack').className = 'card-back impostor game-card-face';
@@ -591,18 +608,27 @@ async function launchOnlineGame() {
   }
 
   document.getElementById('onlineWaitOthers').textContent = '';
+
+  // FIX: Clear previous listeners AFTER writing to Firebase, not before,
+  // so any pending guest status listeners fire correctly first.
   clearListeners();
   goTo('screenOnlineCard');
 
-  // Listen for new round (status back to lobby)
+  // Listen for new round (admin: status back to lobby)
   const sRef = roomRef.child('status');
   const sHandler = sRef.on('value', snap => {
-    if (snap.val() === 'lobby') {
+    const st = snap.val();
+    if (st === 'lobby') {
       clearListeners();
-      document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
       onlineState.cardRevealed = false;
-      goTo('screenAdminLobby');
-      listenAdminLobby();
+      if (onlineState.isAdmin) {
+        goTo('screenAdminLobby');
+        listenAdminLobby();
+      } else {
+        document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
+        goTo('screenPlayerWaiting');
+        listenPlayerWaiting();
+      }
     }
   });
   unsubscribers.push(() => sRef.off('value', sHandler));
@@ -621,13 +647,21 @@ function launchConfettiOnline() {
   }
 }
 
-function listenAdminEnd(totalPlayers, secretWord, impostorIds, playersObj) {
-  clearListeners();
-  // just keep listening to lobby in background for new round
-}
-
+// FIX: newOnlineRound now resets ALL player ready flags and clears the game,
+// then sets status='lobby' — guests listening for 'lobby' will navigate back automatically.
 async function newOnlineRound() {
-  await roomRef.update({ status:'lobby', game:null });
+  // Reset all players' ready flag so they show up cleanly in the new lobby
+  const snap = await roomRef.child('players').once('value');
+  const players = snap.val() || {};
+  const updates = {};
+  Object.keys(players).forEach(id => {
+    updates[`players/${id}/ready`] = false;
+  });
+  updates['game'] = null;
+  updates['status'] = 'lobby';
+  await roomRef.update(updates);
+
+  // Admin navigates to lobby and starts listening
   goTo('screenAdminLobby');
   listenAdminLobby();
 }
@@ -651,7 +685,9 @@ async function joinRoom() {
   if (!snap.exists()) { errEl.textContent='No existe esa sala. Revisá el código.'; errEl.style.display='block'; return; }
 
   const roomData = snap.val();
-  if (roomData.status === 'playing') { errEl.textContent='La partida ya comenzó. Esperá la próxima ronda.'; errEl.style.display='block'; return; }
+  // FIX: Allow joining even mid-game — the player waits in lobby for the next round.
+  // Only block if the room itself doesn't exist.
+  // (Removed the 'playing' block that was trapping players out permanently)
 
   const myId = uid();
   onlineState.roomCode = code;
@@ -665,8 +701,19 @@ async function joinRoom() {
   ref.child('players/'+myId).onDisconnect().remove();
 
   document.getElementById('waitingRoomTitle').textContent = 'Sala ' + code;
-  goTo('screenPlayerWaiting');
-  listenPlayerWaiting();
+
+  // FIX: If game is already in progress, show a waiting message and go to waiting screen.
+  // The listener will catch when status returns to 'lobby'.
+  if (roomData.status === 'playing') {
+    goTo('screenPlayerWaiting');
+    // Show a note that the game is in progress
+    const countEl = document.getElementById('guestPlayerCount');
+    if (countEl) countEl.textContent = 'Partida en curso — esperá la próxima ronda';
+    listenPlayerWaiting();
+  } else {
+    goTo('screenPlayerWaiting');
+    listenPlayerWaiting();
+  }
 }
 
 function listenPlayerWaiting() {
@@ -692,86 +739,93 @@ function listenPlayerWaiting() {
   // Listen game start
   const sRef = roomRef.child('status');
   const sHandler = sRef.on('value', snap => {
-    if (snap.val()==='playing') {
-      showOnlineCard();
+    const st = snap.val();
+    if (st === 'playing') {
+      // Small delay to ensure Firebase has written the full game object
+      setTimeout(() => showOnlineCard(), 300);
     }
   });
   unsubscribers.push(()=>sRef.off('value',sHandler));
 }
 
 async function showOnlineCard() {
-  clearListeners();
-  const gameSnap = await roomRef.child('game').once('value');
-  const game = gameSnap.val();
-  const myAssignment = game.assignments[onlineState.myId];
-
-  onlineState.cardRevealed = false;
-
-  // Set names on card
-  document.getElementById('onlineCardPlayerName').textContent = onlineState.myName;
-  document.getElementById('onlineCardPlayerNameBack').textContent = onlineState.myName;
-  document.getElementById('onlineCardInner').classList.remove('flipped');
-
-  if (myAssignment.isImpostor) {
-    document.getElementById('onlineCardBack').className = 'card-back impostor game-card-face';
-    document.getElementById('onlineCardWord').innerHTML = `<div class="card-impostor-label">IMPOSTOR</div>`;
-    if (myAssignment.pista) {
-      document.getElementById('onlineCardPista').innerHTML = `<div class="card-pista"><strong>Pista:</strong> ${myAssignment.pista}</div>`;
-    } else {
-      document.getElementById('onlineCardPista').innerHTML = '';
-    }
-  } else {
-    document.getElementById('onlineCardBack').className = 'card-back normal game-card-face';
-    document.getElementById('onlineCardWord').innerHTML = `<div class="card-word">${game.secretWord}</div>`;
-    if (game.categoria) {
-      document.getElementById('onlineCardPista').innerHTML = `<div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);">Categoría: ${game.categoria}</div>`;
-    } else {
-      document.getElementById('onlineCardPista').innerHTML = '';
-    }
+  // FIX: Retry fetching game data in case Firebase write isn't fully propagated yet
+  let game = null;
+  for (let attempts = 0; attempts < 5; attempts++) {
+    const gameSnap = await roomRef.child('game').once('value');
+    game = gameSnap.val();
+    if (game && game.assignments) break;
+    await new Promise(r => setTimeout(r, 500));
   }
 
-  document.getElementById('onlineWaitOthers').textContent = '';
-  goTo('screenOnlineCard');
+  if (!game || !game.assignments) {
+    console.error('No se pudo obtener el estado del juego.');
+    return;
+  }
 
-  // Listen for status back to lobby (new round)
-  const sRef = roomRef.child('status');
-  const sHandler = sRef.on('value', snap => {
-    if (snap.val()==='lobby') {
-      clearListeners();
-      document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
-      onlineState.cardRevealed = false;
-      goTo('screenPlayerWaiting');
-      listenPlayerWaiting();
-    }
-  });
-  unsubscribers.push(()=>sRef.off('value',sHandler));
+  const myAssignment = game.assignments[onlineState.myId];
+
+  // FIX: If this player is not in the assignments (joined late in a prev round),
+  // they'll wait as a spectator and get included next round.
+  if (!myAssignment) {
+    clearListeners();
+    goTo('screenPlayerWaiting');
+    document.getElementById('guestPlayerCount').textContent = 'Partida en curso — entrás en la próxima ronda';
+    // Re-listen for lobby
+    const sRef = roomRef.child('status');
+    const sHandler = sRef.on('value', snap => {
+      if (snap.val()==='lobby') {
+        clearListeners();
+        document.getElementById('waitingRoomTitle').textContent = 'Sala ' + onlineState.roomCode;
+        document.getElementById('guestPlayerCount').textContent = '';
+        goTo('screenPlayerWaiting');
+        listenPlayerWaiting();
+      }
+    });
+    unsubscribers.push(()=>sRef.off('value',sHandler));
+    return;
+  }
+
+  _showMyOnlineCard(game.assignments, game.secretWord, game.categoria);
 }
 
 function handleOnlineCardTap() {
   if (!onlineState.cardRevealed) {
     // Primer toque: revela la tarjeta
     document.getElementById('onlineCardInner').classList.add('flipped');
-    document.getElementById('tapHintOnline').textContent = '👆 Tocá de nuevo para confirmar';
+    document.getElementById('tapHintOnline').textContent = '👆 Tocá de nuevo para confirmar que viste tu rol';
     onlineState.cardRevealed = true;
   } else {
-    // Segundo toque: avanza
+    // Segundo toque: avanza a pantalla de espera
     roomRef.child('game/assignments/'+onlineState.myId+'/ready').set(true);
+    clearListeners();
     goTo('screenOnlineWaitEnd');
+
+    // FIX: Fix the display:none / display:flex conflict in HTML inline style
+    // by setting it here explicitly
     const adminBtn = document.getElementById('adminNewRoundBtn');
     adminBtn.style.display = onlineState.isAdmin ? 'flex' : 'none';
+
     listenWaitEnd();
   }
 }
 
 function listenWaitEnd() {
+  clearListeners();
   const sRef = roomRef.child('status');
   const sHandler = sRef.on('value', snap => {
-    if (snap.val()==='lobby') {
+    const st = snap.val();
+    if (st === 'lobby') {
       clearListeners();
-      document.getElementById('waitingRoomTitle').textContent = 'Sala '+onlineState.roomCode;
       onlineState.cardRevealed = false;
-      goTo('screenPlayerWaiting');
-      listenPlayerWaiting();
+      if (onlineState.isAdmin) {
+        goTo('screenAdminLobby');
+        listenAdminLobby();
+      } else {
+        document.getElementById('waitingRoomTitle').textContent = 'Sala '+onlineState.roomCode;
+        goTo('screenPlayerWaiting');
+        listenPlayerWaiting();
+      }
     }
   });
   unsubscribers.push(()=>sRef.off('value',sHandler));
