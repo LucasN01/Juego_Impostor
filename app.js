@@ -444,7 +444,7 @@ function listenAdminLobby() {
       div.innerHTML = `
         <div class="p-avatar">${p.name[0].toUpperCase()}</div>
         <span class="p-name">${p.name}</span>
-        ${p.isAdmin ? '<span class="admin-tag">Admin</span>' : ''}
+        ${p.isAdmin ? '<span class="admin-tag">Admin</span>' : `<button class="kick-btn" onclick="kickPlayer('${id}')">✕</button>`}
       `;
       container.appendChild(div);
     });
@@ -613,6 +613,7 @@ function _showMyOnlineCard(assignments, secretWord, categoria) {
   // FIX: Clear previous listeners AFTER writing to Firebase, not before,
   // so any pending guest status listeners fire correctly first.
   clearListeners();
+  listenKicked();
   goTo('screenOnlineCard');
 
   // Listen for new round (admin: status back to lobby)
@@ -721,7 +722,7 @@ async function joinRoom() {
 function listenPlayerWaiting() {
   clearListeners();
 
-  // Listen players list
+  listenKicked();
   const pRef = roomRef.child('players');
   const pHandler = pRef.on('value', snap => {
     const players = snap.val()||{};
@@ -814,6 +815,7 @@ function handleOnlineCardTap() {
 
 function listenWaitEnd() {
   clearListeners();
+  listenKicked();
   const sRef = roomRef.child('status');
   const sHandler = sRef.on('value', snap => {
     const st = snap.val();
@@ -831,6 +833,46 @@ function listenWaitEnd() {
     }
   });
   unsubscribers.push(()=>sRef.off('value',sHandler));
+}
+
+// ----- Expulsar jugador (admin) -----
+async function kickPlayer(playerId) {
+  if (!onlineState.isAdmin) return;
+  const confirmKick = confirm('¿Eliminar jugador de la sala?');
+  if (!confirmKick) return;
+  try {
+    // Solo marca como expulsado — el cliente del jugador se encarga de eliminarse
+    await roomRef.child('kicked/' + playerId).set(true);
+  } catch(e) {
+    alert('No se pudo eliminar el jugador.');
+  }
+}
+
+// ----- Escuchar si fui expulsado -----
+function listenKicked() {
+  const kickedRef = roomRef.child('kicked/' + onlineState.myId);
+  const kickedHandler = kickedRef.on('value', snap => {
+    if (snap.val() === true) {
+      alert('Fuiste expulsado de la sala.');
+      clearListeners();
+      // El jugador expulsado se elimina a sí mismo
+      if (roomRef && onlineState.myId) {
+        roomRef.child('players/' + onlineState.myId).remove();
+        roomRef.child('game/assignments/' + onlineState.myId).remove();
+        roomRef.child('kicked/' + onlineState.myId).remove();
+      }
+      clearSession();
+      onlineState = {
+        roomCode: '', myId: '', myName: '', isAdmin: false,
+        mode: 'CLASICO', impostors: 1,
+        selectedCategories: new Set(['Países','Fútbol','Cine y TV']),
+        cardRevealed: false,
+      };
+      roomRef = null;
+      goTo('screenHome');
+    }
+  });
+  unsubscribers.push(() => kickedRef.off('value', kickedHandler));
 }
 
 // ----- Salir de sala (intencional) -----
