@@ -27,11 +27,17 @@ let state = {
 };
 
 // NAVIGATION
-function goTo(screenId) {
+function goTo(screenId, pushState = true) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
   window.scrollTo(0,0);
+
+  // AGREGAR ESTO:
+  if (pushState) {
+    history.pushState({ screenId: screenId }, "", "#" + screenId);
+  }
 }
+
 
 // HOME
 function showRules() {
@@ -1048,7 +1054,21 @@ async function reconnectToRoom(session, ref) {
   }
 }
 
+window.addEventListener('popstate', (event) => {
+  if (event.state && event.state.screenId) {
+    // Vuelve a la pantalla guardada en el historial
+    goTo(event.state.screenId, false);
+  } else {
+    // Si no hay historial, vuelve al Home
+    goTo('screenHome', false);
+  }
+});
+
+
 // Inicializar al cargar la página
 window.addEventListener('load', () => {
+  // AGREGAR ESTO:
+  history.replaceState({ screenId: 'screenHome' }, "", "#screenHome");
+  
   checkPreviousSession();
 });
